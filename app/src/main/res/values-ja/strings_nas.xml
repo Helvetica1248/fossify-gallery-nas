@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_sources">NAS接続先</string>
+    <string name="nas_add_source">NAS接続先を追加</string>
+    <string name="nas_edit_source">NAS接続先を編集</string>
+    <string name="nas_settings_only">接続設定を保存できます。接続・ファイル閲覧機能はまだ利用できません。</string>
+    <string name="nas_saved">保存しました。接続はまだテストしていません。</string>
+    <string name="nas_empty">NAS接続先はまだありません。</string>
+    <string name="nas_busy">処理中…</string>
+    <string name="nas_storage_error">処理を完了できませんでした。この画面を開き直して再試行してください。資格情報の再入力が必要な場合があります。</string>
+    <string name="nas_invalid_source">有効なサーバー名、単一の共有名、「..」を含まない相対ルートを入力してください。</string>
+    <string name="nas_display_name">表示名（省略可）</string>
+    <string name="nas_host">サーバー（ホスト名またはIPアドレス）</string>
+    <string name="nas_share">共有名</string>
+    <string name="nas_root">ルートフォルダー（省略可・共有からの相対パス）</string>
+    <string name="nas_username">ユーザー名（必要ならDOMAIN\\user）</string>
+    <string name="nas_password">パスワード</string>
+    <string name="nas_lan">LAN</string>
+    <string name="nas_vpn">VPN必須（LANへ自動切替しない）</string>
+    <string name="nas_credentials_unavailable">保存済みの資格情報を利用できません。ユーザー名とパスワードを再入力して保存してください。</string>
+    <string name="nas_reenter_required">保存する前にユーザー名を再入力してください。</string>
+    <string name="nas_delete_source">NAS接続先を削除しますか？</string>
+    <string name="nas_delete_explanation">保存した接続先と資格情報を削除します。NAS上のファイルには影響しません。</string>
+    <string name="nas_deleted">NAS接続先と資格情報を削除しました。</string>
+</resources>

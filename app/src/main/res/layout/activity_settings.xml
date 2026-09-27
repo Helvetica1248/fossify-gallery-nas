@@ -70,6 +70,13 @@
                 android:layout_height="wrap_content"
                 android:text="@string/general_settings" />
 
+            <org.fossify.commons.views.MyTextView
+                android:id="@+id/settings_nas_sources"
+                style="@style/SettingsTextLabelStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/nas_sources" />
+
             <org.fossify.commons.views.PurchaseThankYouItem
                 android:id="@+id/settings_purchase_thank_you_holder"
                 android:layout_width="match_parent"

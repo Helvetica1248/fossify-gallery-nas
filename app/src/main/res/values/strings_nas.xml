@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fork_app_name" translatable="false">Gallery NAS</string>
+    <string name="nas_sources">NAS sources</string>
+    <string name="nas_add_source">Add NAS source</string>
+    <string name="nas_edit_source">Edit NAS source</string>
+    <string name="nas_settings_only">Save connection settings here. Connecting and browsing are not available yet.</string>
+    <string name="nas_saved">Saved. Connection has not been tested yet.</string>
+    <string name="nas_empty">No NAS sources saved.</string>
+    <string name="nas_busy">Working…</string>
+    <string name="nas_storage_error">Could not complete the operation. Reopen this screen and try again. Stored credentials may need to be re-entered.</string>
+    <string name="nas_invalid_source">Enter a valid server, a single share name, and a relative root without “..”.</string>
+    <string name="nas_display_name">Display name (optional)</string>
+    <string name="nas_host">Server (hostname or IP address)</string>
+    <string name="nas_share">Share name</string>
+    <string name="nas_root">Root folder (optional, relative to share)</string>
+    <string name="nas_username">Username (DOMAIN\\user if needed)</string>
+    <string name="nas_password">Password</string>
+    <string name="nas_lan">LAN</string>
+    <string name="nas_vpn">VPN required (no LAN fallback)</string>
+    <string name="nas_credentials_unavailable">Saved credentials are unavailable. Re-enter the username and password to save this source.</string>
+    <string name="nas_reenter_required">Re-enter the username before saving.</string>
+    <string name="nas_delete_source">Delete NAS source?</string>
+    <string name="nas_delete_explanation">This removes the saved connection and its credentials. Files on the NAS are not affected.</string>
+    <string name="nas_deleted">NAS source and credentials deleted.</string>
+</resources>
