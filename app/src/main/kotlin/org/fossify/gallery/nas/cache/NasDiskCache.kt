@@ -129,9 +129,11 @@ internal class NasDiskCache(
         val keys = (live.map { it.key } + pending.keys + incoming).toMutableSet()
         for (row in live.sortedBy { it.lastUsed }) {
             if (keys.size <= maxIndexRows) break
-            if (row.key == incoming || row.key in leases || row.key in pending) continue
-            discard(row.key, Variant.valueOf(row.variant))
-            keys.remove(row.key)
+            val keep = row.key == incoming || row.key in leases || row.key in pending
+            if (!keep) {
+                discard(row.key, Variant.valueOf(row.variant))
+                keys.remove(row.key)
+            }
         }
         if (keys.size > maxIndexRows) throw NasCacheException(NasFailure.LOW_STORAGE)
     }

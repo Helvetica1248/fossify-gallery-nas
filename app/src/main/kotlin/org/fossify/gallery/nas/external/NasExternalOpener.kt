@@ -24,6 +24,7 @@ private data class PreparedExternal(val token: String? = null, val failure: NasF
 internal class NasExternalOpener(private val activity: Activity, private val owner: LifecycleOwner) {
     private val request = NasUiRequest()
 
+    @Suppress("TooGenericExceptionCaught") // Map storage/SMBJ boundary failures without exposing their messages.
     fun open(entry: NasEntry, finished: () -> Unit = {}) {
         val mime = NasExternalTypes.mime(entry) ?: return
         request.start(owner.lifecycleScope, work = { cancellation ->

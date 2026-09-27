@@ -36,6 +36,7 @@ internal object NasNextCases {
     private fun view(folder: NasRelativePath, entries: List<NasEntry>) =
         NasSearchFolder(NasDirectorySnapshot(source, folder, 1, 1, entries))
 
+    @Suppress("CyclomaticComplexMethod") // Independent small test lambdas share one parameterized corpus.
     fun all(): List<NasNextCase> = listOf(
         NasNextCase("search.recursive-filenames-and-japanese") {
             val child = entry("資料", true)

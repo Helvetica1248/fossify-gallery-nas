@@ -68,7 +68,7 @@ class NasBrowserActivity : SimpleActivity() {
         binding.nasBrowserToolbar.apply {
             menu.add(0, REFRESH, 0, R.string.nas_refresh)
             menu.add(0, SORT, 1, R.string.nas_sort)
-            menu.add(0, SEARCH, 3, R.string.nas_search)
+            menu.add(0, SEARCH, SEARCH_ORDER, R.string.nas_search)
             menu.add(0, FAVORITE, 2, R.string.nas_favorite_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
             setOnMenuItemClickListener {
                 when (it.itemId) {
@@ -305,5 +305,6 @@ class NasBrowserActivity : SimpleActivity() {
         const val SORT = 2
         const val FAVORITE = 3
         const val SEARCH = 4
+        const val SEARCH_ORDER = 3
     }
 }

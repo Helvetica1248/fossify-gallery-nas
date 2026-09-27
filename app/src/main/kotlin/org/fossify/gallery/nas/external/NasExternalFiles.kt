@@ -25,8 +25,9 @@ internal object NasExternalFiles {
         .authority(context.packageName + ".nas.external").appendPath("open").appendPath(token).build()
 
     fun entry(context: Context, uri: Uri): NasEntry {
-        if (uri.scheme != "content" || uri.authority != context.packageName + ".nas.external" ||
-            uri.pathSegments.size != 2 || uri.pathSegments[0] != "open" || uri.query != null || uri.fragment != null) {
+        val endpoint = uri.scheme == "content" && uri.authority == context.packageName + ".nas.external"
+        val path = uri.pathSegments.size == 2 && uri.pathSegments[0] == "open"
+        if (!endpoint || !path || uri.query != null || uri.fragment != null) {
             throw FileNotFoundException("NAS URI unavailable")
         }
         return tokens.get(uri.pathSegments[1]) ?: throw FileNotFoundException("NAS URI expired; reopen from Gallery")
@@ -40,6 +41,11 @@ internal object NasExternalFiles {
         return tokens.issue(entry)
     }
 
+    private fun cancelled(cancellation: NasCancellation): Nothing {
+        cancellation.throwIfCancelled()
+        throw FileNotFoundException("NAS cancelled")
+    }
+
     fun open(context: Context, entry: NasEntry, cancellation: NasCancellation): NasSeekableHandle {
         if (BuildConfig.DEBUG) fixture?.let { return it(entry, cancellation) }
         val app = context.applicationContext
@@ -50,10 +56,7 @@ internal object NasExternalFiles {
         return when (val result = reader.openSeekable(source, entry, cancellation)) {
             is NasSeekableResult.Opened -> result.handle
             is NasSeekableResult.Failed -> throw SmbFailureException(result.reason)
-            NasSeekableResult.Cancelled -> {
-                cancellation.throwIfCancelled()
-                throw FileNotFoundException("NAS cancelled")
-            }
+            NasSeekableResult.Cancelled -> cancelled(cancellation)
         }
     }
 }

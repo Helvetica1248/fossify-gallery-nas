@@ -60,14 +60,14 @@ internal class RoomNasCatalogStore(
         for (row in rows) {
             if (count <= maxFolders && entries <= maxEntries) break
             val old = row.snapshot
-            if (old.sourceId == current.id.toString() && old.revision == current.revision &&
-                old.folder == folder.value) {
-                continue
+            val keep = old.sourceId == current.id.toString() && old.revision == current.revision &&
+                old.folder == folder.value
+            if (!keep) {
+                dao.deleteFolder(old.sourceId, old.revision, old.folder)
+                dao.deleteSnapshot(old.sourceId, old.revision, old.folder)
+                count--
+                entries -= row.entryCount
             }
-            dao.deleteFolder(old.sourceId, old.revision, old.folder)
-            dao.deleteSnapshot(old.sourceId, old.revision, old.folder)
-            count--
-            entries -= row.entryCount
         }
     }
 

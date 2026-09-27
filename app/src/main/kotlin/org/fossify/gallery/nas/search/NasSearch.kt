@@ -74,10 +74,10 @@ internal class NasSearch(
             state.examined++
             if (entry.key.source != snapshot.source || entry.key.path.parent != snapshot.folder) {
                 state.incomplete = true
-                continue
+            } else {
+                if (entry.name.contains(options.text.trim(), ignoreCase = true)) state.matches.add(entry)
+                if (options.recursive && entry.kind == NasEntryKind.DIRECTORY) state.enqueue(entry.key.path)
             }
-            if (entry.name.contains(options.text.trim(), ignoreCase = true)) state.matches.add(entry)
-            if (options.recursive && entry.kind == NasEntryKind.DIRECTORY) state.enqueue(entry.key.path)
         }
     }
 
