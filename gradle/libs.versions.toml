@@ -1,4 +1,5 @@
 [versions]
+smbj = "0.15.0"
 #jetbrains
 kotlin = "2.3.10"
 #KSP
@@ -45,6 +46,7 @@ app-build-minimumSDK = "26"
 app-build-javaVersion = "VERSION_17"
 app-build-kotlinJVMTarget = "17"
 [libraries]
+smbj = { module = "com.hierynomus:smbj", version.ref = "smbj" }
 #AndroidX
 androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", version.ref = "androidx-lifecycle" }
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3Exoplayer" }
