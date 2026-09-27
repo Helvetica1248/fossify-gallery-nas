@@ -16,6 +16,8 @@ import org.fossify.gallery.nas.transport.NasSeekableHandle
 import org.fossify.gallery.nas.transport.NasSeekableResult
 import java.io.FileNotFoundException
 
+private const val EXTERNAL_SOCKET_IDLE_MILLIS = 11 * 60 * 1000
+
 internal object NasExternalFiles {
     val tokens = NasOpenTokens()
     // Device probe only; Release never uses injected readers.
@@ -53,7 +55,11 @@ internal object NasExternalFiles {
         val settings = AndroidNasSettings.get(app)
         val source = settings.list().firstOrNull { it.source.key == entry.key.source }?.source
             ?: throw SmbFailureException(NasFailure.NOT_FOUND)
-        val reader = SmbNasReader(AndroidSmbNetwork(app)) { settings.credentials(SavedNasSource(it, "")) }
+        // The packet reader must survive normal pauses between PDF pages or video buffers.
+        // SMB commands remain bounded to 15 seconds; the proxy additionally aborts stalled reads.
+        val reader = SmbNasReader(AndroidSmbNetwork(app), EXTERNAL_SOCKET_IDLE_MILLIS) {
+            settings.credentials(SavedNasSource(it, ""))
+        }
         return when (val result = reader.openSeekable(source, entry, cancellation)) {
             is NasSeekableResult.Opened -> result.handle
             is NasSeekableResult.Failed -> throw SmbFailureException(result.reason)

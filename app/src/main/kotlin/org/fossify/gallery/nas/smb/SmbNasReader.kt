@@ -30,6 +30,7 @@ import java.util.concurrent.CancellationException
 @Suppress("TooGenericExceptionCaught")
 internal class SmbNasReader(
     private val network: SmbNetworkProvider,
+    private val socketIdleMillis: Int = SMB_TIMEOUT_MILLIS,
     private val credentials: (NasSource) -> NasCredentials?
 ) : NasReader, NasSeekableReader {
     override fun list(source: NasSource, folder: NasRelativePath, cancellation: NasCancellation): NasListingResult {
@@ -115,7 +116,7 @@ internal class SmbNasReader(
         cancellation.throwIfCancelled()
         val address = SmbDns.resolve(route, source.host.value, context)
         val sockets = SmbSocketFactory(route, address, source.port, context, cancellation)
-        val client = context.own(SMBClient(SmbSafety.config(sockets)))
+        val client = context.own(SMBClient(SmbSafety.config(sockets, socketIdleMillis)))
         // Pass a numeric address so SMBJ's InetSocketAddress cannot resolve outside the selected VPN.
         val connection = client.connect(address.hostAddress, source.port)
         context.own(AutoCloseable { connection.close(true) })
