@@ -7,6 +7,8 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 
+private const val MAX_EMPTY_READS = 8
+
 /**
  * Copies into a caller-created PRIVATE temporary file, never into a completed cache entry or NAS.
  * Owns/closes both supplied streams, including on failures. P4 must rename a validated, closed .part
@@ -16,7 +18,6 @@ import java.io.OutputStream
  */
 object NasStreamCopier {
     private const val BUFFER_BYTES = 64 * 1024
-    private const val MAX_EMPTY_READS = 8
     private const val MAX_TRANSFER_BYTES = 1024L * 1024 * 1024
 
     fun copy(
@@ -194,9 +195,6 @@ object NasStreamCopier {
         }
     }
 
-    private fun emptyReadFailure(emptyReads: Int): NasFailure? =
-        NasFailure.IO_ERROR.takeIf { emptyReads >= MAX_EMPTY_READS }
-
     private data class TransferProgress(val copied: Long, val failure: NasFailure?)
 
     private sealed interface ReadResult {
@@ -209,3 +207,6 @@ object NasStreamCopier {
 
 private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
     NasFailure.TIMED_OUT.takeIf { deadline.isExpired() }
+
+private fun emptyReadFailure(emptyReads: Int): NasFailure? =
+    NasFailure.IO_ERROR.takeIf { emptyReads >= MAX_EMPTY_READS }
