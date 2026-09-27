@@ -259,7 +259,7 @@ internal fun transferCases(): List<NasCoreCase> = buildList {
     add(NasCoreCase("transfer.unchecked-read-closes-both") {
         val input = object : TrackedInput(ByteArray(1)) {
             override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
-                throw IllegalStateException("unchecked read")
+                error("unchecked read")
             }
         }
         val output = TrackedOutput()
@@ -289,7 +289,7 @@ internal fun transferCases(): List<NasCoreCase> = buildList {
         val output = object : TrackedOutput() {
             override fun close() {
                 super.close()
-                throw IllegalStateException("unchecked close")
+                error("unchecked close")
             }
         }
         val error = throws<IllegalStateException> {

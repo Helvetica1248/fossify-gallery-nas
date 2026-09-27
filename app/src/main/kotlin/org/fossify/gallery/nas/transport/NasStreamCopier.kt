@@ -34,41 +34,43 @@ object NasStreamCopier {
 
         var inputOwner: Closeable? = null
         var outputOwner: Closeable? = null
-        var result: NasTransferResult? = null
-        var unexpected: Throwable? = null
+        var operation: Result<NasTransferResult>? = null
+        var closeFailure: Throwable? = null
 
         try {
-            inputOwner = cancellation.own(input)
-            outputOwner = cancellation.own(output)
-            result = transfer(input, output, cancellation, deadline, maxBytes, expectedBytes)
-        } catch (ignored: CancellationException) {
-            result = NasTransferResult.Cancelled
-        } catch (ignored: IOException) {
-            result = ioFailure(cancellation)
-        } catch (error: Throwable) {
-            unexpected = error
-        } finally {
-            when (val closeFailure = closeOwnedStreams(output, inputOwner, outputOwner)) {
-                null -> Unit
-                is CancellationException -> {
-                    if (unexpected == null) result = NasTransferResult.Cancelled
-                    else unexpected = combineFailures(unexpected, closeFailure)
-                }
-                is IOException -> {
-                    if (unexpected == null) result = ioFailure(cancellation)
-                    else unexpected = combineFailures(unexpected, closeFailure)
-                }
-                else -> unexpected = combineFailures(unexpected, closeFailure)
+            operation = runCatching {
+                inputOwner = cancellation.own(input)
+                outputOwner = cancellation.own(output)
+                transfer(input, output, cancellation, deadline, maxBytes, expectedBytes)
             }
+        } finally {
+            closeFailure = closeOwnedStreams(output, inputOwner, outputOwner)
         }
 
-        unexpected?.let { throw it }
-        return finalizeResult(checkNotNull(result), cancellation, deadline)
+        return resolveResult(checkNotNull(operation), closeFailure, cancellation, deadline)
     }
 
     private fun ioFailure(cancellation: NasCancellation): NasTransferResult =
         if (cancellation.isCancelled) NasTransferResult.Cancelled
         else NasTransferResult.Failed(NasFailure.IO_ERROR)
+
+    private fun resolveResult(
+        operation: Result<NasTransferResult>,
+        closeFailure: Throwable?,
+        cancellation: NasCancellation,
+        deadline: NasDeadline
+    ): NasTransferResult {
+        val operationFailure = operation.exceptionOrNull()
+        throwUnexpected(operationFailure, closeFailure)
+        val result = when {
+            operationFailure is CancellationException || closeFailure is CancellationException -> {
+                NasTransferResult.Cancelled
+            }
+            operationFailure is IOException || closeFailure is IOException -> ioFailure(cancellation)
+            else -> operation.getOrThrow()
+        }
+        return finalizeResult(result, cancellation, deadline)
+    }
 
     private fun finalizeResult(
         result: NasTransferResult,
@@ -212,12 +214,7 @@ private fun closeOwnedStreams(
 
 private fun closeCapturing(resource: Closeable?): Throwable? {
     if (resource == null) return null
-    return try {
-        resource.close()
-        null
-    } catch (error: Throwable) {
-        error
-    }
+    return runCatching { resource.close() }.exceptionOrNull()
 }
 
 private fun combineFailures(primary: Throwable?, additional: Throwable?): Throwable? {
@@ -226,6 +223,23 @@ private fun combineFailures(primary: Throwable?, additional: Throwable?): Throwa
     if (primary !== additional) primary.addSuppressed(additional)
     return primary
 }
+
+private fun throwUnexpected(operationFailure: Throwable?, closeFailure: Throwable?) {
+    val operationUnexpected = operationFailure?.takeUnless(::isExpectedTransferFailure)
+    if (operationUnexpected != null) {
+        closeFailure?.takeIf { it !== operationUnexpected }?.let(operationUnexpected::addSuppressed)
+        throw operationUnexpected
+    }
+
+    val closeUnexpected = closeFailure?.takeUnless(::isExpectedTransferFailure)
+    if (closeUnexpected != null) {
+        operationFailure?.takeIf { it !== closeUnexpected }?.let(closeUnexpected::addSuppressed)
+        throw closeUnexpected
+    }
+}
+
+private fun isExpectedTransferFailure(error: Throwable): Boolean =
+    error is CancellationException || error is IOException
 
 private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
     NasFailure.TIMED_OUT.takeIf { deadline.isExpired() }
