@@ -4,7 +4,7 @@
     <string name="nas_sources">NAS sources</string>
     <string name="nas_add_source">Add NAS source</string>
     <string name="nas_edit_source">Edit NAS source</string>
-    <string name="nas_settings_only">Save connection settings here. Connecting and browsing are not available yet.</string>
+    <string name="nas_settings_only">Save settings, then explicitly test a connection. Browsing is not available yet.</string>
     <string name="nas_saved">Saved. Connection has not been tested yet.</string>
     <string name="nas_empty">No NAS sources saved.</string>
     <string name="nas_busy">Working…</string>
@@ -23,4 +23,14 @@
     <string name="nas_delete_source">Delete NAS source?</string>
     <string name="nas_delete_explanation">This removes the saved connection and its credentials. Files on the NAS are not affected.</string>
     <string name="nas_deleted">NAS source and credentials deleted.</string>
+    <string name="nas_test_connection">Test connection</string>
+    <string name="nas_test_success">Connected successfully.</string>
+    <string name="nas_test_cancelled">Connection test cancelled.</string>
+    <string name="nas_test_vpn_required">A VPN connection is required.</string>
+    <string name="nas_test_auth_failed">Authentication failed. Check or re-enter the saved credentials.</string>
+    <string name="nas_test_access_denied">Folder access was denied.</string>
+    <string name="nas_test_not_found">Share or folder was not found.</string>
+    <string name="nas_test_timeout">Connection timed out.</string>
+    <string name="nas_test_unsupported">This connection or folder is not supported securely.</string>
+    <string name="nas_test_failed">Could not connect to the NAS.</string>
 </resources>

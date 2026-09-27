@@ -31,6 +31,7 @@ android {
     compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
 
     defaultConfig {
+        testInstrumentationRunner = "org.fossify.gallery.nas.smb.SmbRuntimeProbe"
         applicationId = "io.github.helvetica1248.fossifygallerynas"
         // Commons derives icon aliases from the application ID without its .debug suffix.
         manifestPlaceholders["launcherAliasPrefix"] = applicationId!!
@@ -146,6 +147,7 @@ detekt {
 }
 
 dependencies {
+    implementation(libs.smbj)
     implementation(libs.fossify.commons)
     implementation(libs.androidx.print)
     implementation(libs.android.image.cropper)

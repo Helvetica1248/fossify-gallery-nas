@@ -3,7 +3,7 @@
     <string name="nas_sources">NAS接続先</string>
     <string name="nas_add_source">NAS接続先を追加</string>
     <string name="nas_edit_source">NAS接続先を編集</string>
-    <string name="nas_settings_only">接続設定を保存できます。接続・ファイル閲覧機能はまだ利用できません。</string>
+    <string name="nas_settings_only">設定を保存した後、接続をテストできます。ファイル閲覧はまだできません。</string>
     <string name="nas_saved">保存しました。接続はまだテストしていません。</string>
     <string name="nas_empty">NAS接続先はまだありません。</string>
     <string name="nas_busy">処理中…</string>
@@ -22,4 +22,14 @@
     <string name="nas_delete_source">NAS接続先を削除しますか？</string>
     <string name="nas_delete_explanation">保存した接続先と資格情報を削除します。NAS上のファイルには影響しません。</string>
     <string name="nas_deleted">NAS接続先と資格情報を削除しました。</string>
+    <string name="nas_test_connection">接続をテスト</string>
+    <string name="nas_test_success">接続できました</string>
+    <string name="nas_test_cancelled">接続テストを中止しました</string>
+    <string name="nas_test_vpn_required">VPNが必要です</string>
+    <string name="nas_test_auth_failed">認証に失敗しました。保存した資格情報を確認・再入力してください。</string>
+    <string name="nas_test_access_denied">フォルダーへアクセスできません</string>
+    <string name="nas_test_not_found">共有またはフォルダーが見つかりません</string>
+    <string name="nas_test_timeout">タイムアウトしました</string>
+    <string name="nas_test_unsupported">この接続またはフォルダーは安全に利用できません</string>
+    <string name="nas_test_failed">NASに接続できません</string>
 </resources>
