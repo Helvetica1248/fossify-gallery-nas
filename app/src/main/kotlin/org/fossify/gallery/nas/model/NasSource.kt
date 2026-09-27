@@ -12,14 +12,22 @@ class NasHost private constructor(val value: String) {
     override fun toString() = "NasHost(<redacted>)"
 
     companion object {
+        private const val MAX_HOST_LENGTH = 253
+        private const val MAX_ASCII_CODE_POINT = 127
+        private const val MAX_DNS_LABEL_LENGTH = 63
+        private const val IPV4_PARTS = 4
+        private const val MAX_IPV4_OCTET = 255
+
         fun parse(value: String): NasHost {
-            require(value.isNotEmpty() && value.length <= 253) { "Invalid NAS host" }
-            require(value == value.trim() && value.none { it.code > 127 }) { "Invalid NAS host" }
+            require(value.isNotEmpty() && value.length <= MAX_HOST_LENGTH) { "Invalid NAS host" }
+            require(value == value.trim() && value.none { it.code > MAX_ASCII_CODE_POINT }) { "Invalid NAS host" }
             val valid = when {
                 ':' in value -> validIpv6Literal(value)
                 value.all { it.isDigit() || it == '.' } -> validIpv4Literal(value)
                 else -> value.split('.').all { label ->
-                    label.length in 1..63 && label.first().isLetterOrDigit() && label.last().isLetterOrDigit() &&
+                    label.length in 1..MAX_DNS_LABEL_LENGTH &&
+                        label.first().isLetterOrDigit() &&
+                        label.last().isLetterOrDigit() &&
                         label.all { it.isLetterOrDigit() || it == '-' }
                 }
             }
@@ -29,8 +37,8 @@ class NasHost private constructor(val value: String) {
 
         private fun validIpv4Literal(value: String): Boolean {
             val parts = value.split('.')
-            return parts.size == 4 && parts.all {
-                it.isNotEmpty() && (it.length == 1 || it[0] != '0') && (it.toIntOrNull() ?: -1) in 0..255
+            return parts.size == IPV4_PARTS && parts.all {
+                it.isNotEmpty() && (it.length == 1 || it[0] != '0') && (it.toIntOrNull() ?: -1) in 0..MAX_IPV4_OCTET
             }
         }
 
@@ -67,9 +75,13 @@ class NasSource(
         require(!sharePath.isRoot && sharePath.parent == NasRelativePath.ROOT) { "Invalid NAS share" }
     }
 
-    val port: Int get() = 445
+    val port: Int get() = SMB_PORT
 
     fun pathWithinShare(relative: NasRelativePath): NasRelativePath = root.resolve(relative)
 
     override fun toString() = "NasSource(id=${key.id}, revision=${key.revision}, mode=$mode)"
+
+    private companion object {
+        const val SMB_PORT = 445
+    }
 }

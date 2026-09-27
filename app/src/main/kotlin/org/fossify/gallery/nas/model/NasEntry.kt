@@ -9,6 +9,8 @@ data class NasRemoteKey(val source: NasSourceKey, val path: NasRelativePath) {
     }
 }
 
+private const val MAX_FILE_ID_LENGTH = 512
+
 data class NasEntry(
     val key: NasRemoteKey,
     val kind: NasEntryKind,
@@ -19,7 +21,7 @@ data class NasEntry(
     init {
         require(size == null || size >= 0) { "Invalid NAS size" }
         require(modifiedEpochMillis == null || modifiedEpochMillis >= 0) { "Invalid NAS modification time" }
-        require(fileId == null || fileId.length in 1..512) { "Invalid NAS file identifier" }
+        require(fileId == null || fileId.length in 1..MAX_FILE_ID_LENGTH) { "Invalid NAS file identifier" }
         require(fileId == null || fileId.none { Character.isSurrogate(it) }) { "Invalid NAS file identifier" }
     }
 

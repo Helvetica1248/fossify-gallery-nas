@@ -16,6 +16,7 @@ import java.io.OutputStream
 object NasStreamCopier {
     private const val BUFFER_BYTES = 64 * 1024
     private const val MAX_EMPTY_READS = 8
+    private const val MAX_TRANSFER_BYTES = 1024L * 1024 * 1024
 
     fun copy(
         input: InputStream,
@@ -25,7 +26,7 @@ object NasStreamCopier {
         maxBytes: Long,
         expectedBytes: Long? = null
     ): NasTransferResult {
-        require(maxBytes in 1..(1024L * 1024 * 1024)) { "Invalid transfer size limit" }
+        require(maxBytes in 1..MAX_TRANSFER_BYTES) { "Invalid transfer size limit" }
         require(expectedBytes == null || expectedBytes >= 0) { "Invalid expected length" }
         // Acquire both so early cancellation cannot leave the output stream unclosed.
         var inputOwner: java.io.Closeable? = null

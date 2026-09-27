@@ -35,7 +35,7 @@ class NasRefreshTicket internal constructor()
 class NasDirectoryCatalog(
     private val source: NasSourceKey,
     private val folder: NasRelativePath,
-    private val maxEntries: Int = 100_000
+    private val maxEntries: Int = DEFAULT_MAX_ENTRIES
 ) {
     private var active: NasRefreshTicket? = null
     private var state = NasDirectoryState(
@@ -65,10 +65,7 @@ class NasDirectoryCatalog(
         active = null
         state = when (result) {
             is NasListingResult.Complete -> {
-                val invalid = result.entries.size > maxEntries ||
-                    result.entries.any { it.key.source != source || it.key.path.parent != folder } ||
-                    result.entries.map { it.key.path }.toSet().size != result.entries.size
-                if (invalid || state.snapshot.generation == Long.MAX_VALUE) {
+                if (isInvalid(result) || state.snapshot.generation == Long.MAX_VALUE) {
                     failed(NasFailure.INVALID_RESPONSE)
                 } else {
                     NasDirectoryState(
@@ -85,7 +82,17 @@ class NasDirectoryCatalog(
         return true
     }
 
+    private fun isInvalid(result: NasListingResult.Complete): Boolean {
+        if (result.entries.size > maxEntries) return true
+        if (result.entries.any { it.key.source != source || it.key.path.parent != folder }) return true
+        return result.entries.map { it.key.path }.toSet().size != result.entries.size
+    }
+
     private fun failed(reason: NasFailure) = state.copy(
         isRefreshing = false, lastFailure = reason, wasCancelled = false
     )
+
+    private companion object {
+        const val DEFAULT_MAX_ENTRIES = 100_000
+    }
 }

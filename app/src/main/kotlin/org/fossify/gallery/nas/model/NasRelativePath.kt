@@ -30,6 +30,9 @@ class NasRelativePath private constructor(val value: String) {
         val ROOT = NasRelativePath("")
         private const val MAX_PATH_UNITS = 32760
         private const val MAX_SEGMENT_UNITS = 255
+        private const val C0_CONTROL_END = 32
+        private const val C1_CONTROL_START = 127
+        private const val C1_CONTROL_END = 159
 
         /** Do not trim, case-fold, URL-decode, or Unicode-normalize remote filenames. */
         fun parse(value: String): NasRelativePath {
@@ -44,7 +47,8 @@ class NasRelativePath private constructor(val value: String) {
             require(segment != "." && segment != "..") { "Relative traversal is not allowed" }
             require(!segment.endsWith('.') && !segment.endsWith(' ')) { "Ambiguous NAS path segment" }
             require(segment.none {
-                it == '/' || it == '\\' || it in ":*?\"<>|" || it.code < 32 || it.code in 127..159
+                it == '/' || it == '\\' || it in ":*?\"<>|" ||
+                    it.code < C0_CONTROL_END || it.code in C1_CONTROL_START..C1_CONTROL_END
             }) {
                 "Invalid NAS path character"
             }

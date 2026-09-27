@@ -6,6 +6,11 @@ import java.security.MessageDigest
 
 /** A bounded, filename-safe cache identity. It is not proof that remote contents are unchanged. */
 object NasCacheKey {
+    private const val HASH_HEX_LENGTH = 64
+    private const val BYTE_MASK = 0xff
+    private const val NIBBLE_BITS = 4
+    private const val NIBBLE_MASK = 0x0f
+
     enum class Variant { ORIGINAL, THUMBNAIL }
 
     fun forEntry(entry: NasEntry, variant: Variant, decoderRevision: Int = 1): String {
@@ -29,11 +34,11 @@ object NasCacheKey {
             if (bytes != null) digest.update(bytes)
         }
         val hex = "0123456789abcdef"
-        return buildString(64) {
+        return buildString(HASH_HEX_LENGTH) {
             digest.digest().forEach { byte ->
-                val value = byte.toInt() and 255
-                append(hex[value ushr 4])
-                append(hex[value and 15])
+                val value = byte.toInt() and BYTE_MASK
+                append(hex[value ushr NIBBLE_BITS])
+                append(hex[value and NIBBLE_MASK])
             }
         }
     }

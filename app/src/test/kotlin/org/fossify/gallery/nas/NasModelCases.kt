@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber", "LongMethod")
+
 package org.fossify.gallery.nas
 
 import org.fossify.gallery.nas.model.NasCacheKey
