@@ -44,7 +44,7 @@ object NasStreamCopier {
             result = ioFailure(cancellation)
         }
 
-        val closeFailed = closeOwnedStreams(input, output, inputOwner, outputOwner)
+        val closeFailed = closeOwnedStreams(output, inputOwner, outputOwner)
         return finalizeResult(result, cancellation, deadline, closeFailed)
     }
 
@@ -53,7 +53,6 @@ object NasStreamCopier {
         else NasTransferResult.Failed(NasFailure.IO_ERROR)
 
     private fun closeOwnedStreams(
-        input: InputStream,
         output: OutputStream,
         inputOwner: Closeable?,
         outputOwner: Closeable?
@@ -125,34 +124,46 @@ object NasStreamCopier {
         var failure: NasFailure? = null
 
         while (!finished && failure == null) {
-            cancellation.throwIfCancelled()
-            failure = deadlineFailure(deadline)
-
-            if (failure == null) {
-                val limit = minOf(buffer.size.toLong(), maxBytes - copied + 1).toInt()
-                val count = input.read(buffer, 0, limit)
-                cancellation.throwIfCancelled()
-                failure = deadlineFailure(deadline)
-
-                if (failure == null) {
-                    when (val read = classifyRead(count, limit, copied, maxBytes, expectedBytes)) {
-                        ReadResult.End -> finished = true
-                        ReadResult.Empty -> {
-                            emptyReads++
-                            if (emptyReads >= MAX_EMPTY_READS) failure = NasFailure.IO_ERROR
-                        }
-                        is ReadResult.Data -> {
-                            emptyReads = 0
-                            output.write(buffer, 0, read.count)
-                            copied += read.count
-                        }
-                        is ReadResult.Failed -> failure = read.reason
-                    }
+            when (val read = readOnce(input, buffer, cancellation, deadline, copied, maxBytes, expectedBytes)) {
+                ReadResult.End -> finished = true
+                ReadResult.Empty -> {
+                    emptyReads++
+                    failure = emptyReadFailure(emptyReads)
                 }
+                is ReadResult.Data -> {
+                    emptyReads = 0
+                    output.write(buffer, 0, read.count)
+                    copied += read.count
+                }
+                is ReadResult.Failed -> failure = read.reason
             }
         }
 
         return TransferProgress(copied, failure)
+    }
+
+    private fun readOnce(
+        input: InputStream,
+        buffer: ByteArray,
+        cancellation: NasCancellation,
+        deadline: NasDeadline,
+        copied: Long,
+        maxBytes: Long,
+        expectedBytes: Long?
+    ): ReadResult {
+        cancellation.throwIfCancelled()
+        deadlineFailure(deadline)?.let { return ReadResult.Failed(it) }
+
+        val limit = minOf(buffer.size.toLong(), maxBytes - copied + 1).toInt()
+        val count = input.read(buffer, 0, limit)
+
+        cancellation.throwIfCancelled()
+        val timedOut = deadlineFailure(deadline)
+        return if (timedOut != null) {
+            ReadResult.Failed(timedOut)
+        } else {
+            classifyRead(count, limit, copied, maxBytes, expectedBytes)
+        }
     }
 
     private fun classifyRead(
@@ -185,6 +196,9 @@ object NasStreamCopier {
 
     private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
         NasFailure.TIMED_OUT.takeIf { deadline.isExpired() }
+
+    private fun emptyReadFailure(emptyReads: Int): NasFailure? =
+        NasFailure.IO_ERROR.takeIf { emptyReads >= MAX_EMPTY_READS }
 
     private data class TransferProgress(val copied: Long, val failure: NasFailure?)
 
