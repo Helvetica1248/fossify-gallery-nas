@@ -27,7 +27,8 @@ internal object NasExternalFiles {
     fun entry(context: Context, uri: Uri): NasEntry {
         val endpoint = uri.scheme == "content" && uri.authority == context.packageName + ".nas.external"
         val path = uri.pathSegments.size == 2 && uri.pathSegments[0] == "open"
-        if (!endpoint || !path || uri.query != null || uri.fragment != null) {
+        val plain = uri.query == null && uri.fragment == null
+        if (!endpoint || !path || !plain) {
             throw FileNotFoundException("NAS URI unavailable")
         }
         return tokens.get(uri.pathSegments[1]) ?: throw FileNotFoundException("NAS URI expired; reopen from Gallery")
