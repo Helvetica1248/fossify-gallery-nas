@@ -12,6 +12,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -253,6 +254,49 @@ internal fun transferCases(): List<NasCoreCase> = buildList {
             NasTransferResult.Cancelled,
             NasStreamCopier.copy(TrackedInput(ByteArray(1)), output, cancellation, foreverDeadline(), 4)
         )
+        equal(1, output.closes.get())
+    })
+    add(NasCoreCase("transfer.unchecked-read-closes-both") {
+        val input = object : TrackedInput(ByteArray(1)) {
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+                throw IllegalStateException("unchecked read")
+            }
+        }
+        val output = TrackedOutput()
+        val error = throws<IllegalStateException> {
+            NasStreamCopier.copy(input, output, NasCancellation(), foreverDeadline(), 4)
+        }
+        equal("unchecked read", error.message)
+        equal(1, input.closes.get())
+        equal(1, output.closes.get())
+    })
+    add(NasCoreCase("transfer.general-cancellation-closes-both") {
+        val input = object : TrackedInput(ByteArray(1)) {
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+                throw CancellationException("upstream cancellation")
+            }
+        }
+        val output = TrackedOutput()
+        equal(
+            NasTransferResult.Cancelled,
+            NasStreamCopier.copy(input, output, NasCancellation(), foreverDeadline(), 4)
+        )
+        equal(1, input.closes.get())
+        equal(1, output.closes.get())
+    })
+    add(NasCoreCase("transfer.unchecked-output-close-still-closes-input") {
+        val input = TrackedInput(ByteArray(1))
+        val output = object : TrackedOutput() {
+            override fun close() {
+                super.close()
+                throw IllegalStateException("unchecked close")
+            }
+        }
+        val error = throws<IllegalStateException> {
+            NasStreamCopier.copy(input, output, NasCancellation(), foreverDeadline(), 4)
+        }
+        equal("unchecked close", error.message)
+        equal(1, input.closes.get())
         equal(1, output.closes.get())
     })
     add(NasCoreCase("transfer.fake-blocking-stream-reclaimed-20-cycles") {

@@ -6,6 +6,7 @@ import org.fossify.gallery.nas.data.NasDirectoryCatalog
 import org.fossify.gallery.nas.model.NasFailure
 import org.fossify.gallery.nas.model.NasListingResult
 import org.fossify.gallery.nas.model.NasRelativePath
+import java.util.UUID
 
 internal fun catalogCases(): List<NasCoreCase> = buildList {
     fun catalog() = NasDirectoryCatalog(TEST_SOURCE, NasRelativePath.parse("photos"))
@@ -86,7 +87,8 @@ internal fun catalogCases(): List<NasCoreCase> = buildList {
     })
     listOf(
         listOf(entry(), entry()), listOf(entry("elsewhere/a.jpg")), listOf(entry("photos/nested/a.jpg")),
-        listOf(entry("photos/a.jpg", TEST_SOURCE.copy(revision = 2)))
+        listOf(entry("photos/a.jpg", TEST_SOURCE.copy(revision = 2))),
+        listOf(entry("photos/a.jpg", TEST_SOURCE.copy(id = UUID.fromString("00000000-0000-0000-0000-000000000099"))))
     ).forEachIndexed { i, entries ->
         add(NasCoreCase("catalog.reject-invalid-listing.$i") {
             val catalog = populated()

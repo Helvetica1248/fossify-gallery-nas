@@ -177,5 +177,5 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     detektPlugins(libs.compose.detekt)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
 }

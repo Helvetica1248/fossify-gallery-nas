@@ -6,6 +6,7 @@ import java.io.Closeable
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.CancellationException
 
 private const val MAX_EMPTY_READS = 8
 
@@ -33,56 +34,48 @@ object NasStreamCopier {
 
         var inputOwner: Closeable? = null
         var outputOwner: Closeable? = null
-        var result = NasTransferResult.Cancelled as NasTransferResult
+        var result: NasTransferResult? = null
+        var unexpected: Throwable? = null
 
         try {
             inputOwner = cancellation.own(input)
             outputOwner = cancellation.own(output)
             result = transfer(input, output, cancellation, deadline, maxBytes, expectedBytes)
-        } catch (ignored: NasCancelledException) {
+        } catch (ignored: CancellationException) {
             result = NasTransferResult.Cancelled
         } catch (ignored: IOException) {
             result = ioFailure(cancellation)
+        } catch (error: Throwable) {
+            unexpected = error
+        } finally {
+            when (val closeFailure = closeOwnedStreams(output, inputOwner, outputOwner)) {
+                null -> Unit
+                is CancellationException -> {
+                    if (unexpected == null) result = NasTransferResult.Cancelled
+                    else unexpected = combineFailures(unexpected, closeFailure)
+                }
+                is IOException -> {
+                    if (unexpected == null) result = ioFailure(cancellation)
+                    else unexpected = combineFailures(unexpected, closeFailure)
+                }
+                else -> unexpected = combineFailures(unexpected, closeFailure)
+            }
         }
 
-        val closeFailed = closeOwnedStreams(output, inputOwner, outputOwner)
-        return finalizeResult(result, cancellation, deadline, closeFailed)
+        unexpected?.let { throw it }
+        return finalizeResult(checkNotNull(result), cancellation, deadline)
     }
 
     private fun ioFailure(cancellation: NasCancellation): NasTransferResult =
         if (cancellation.isCancelled) NasTransferResult.Cancelled
         else NasTransferResult.Failed(NasFailure.IO_ERROR)
 
-    private fun closeOwnedStreams(
-        output: OutputStream,
-        inputOwner: Closeable?,
-        outputOwner: Closeable?
-    ): Boolean {
-        var failed = false
-        val pendingOutput = outputOwner ?: output.takeIf { inputOwner == null }
-        failed = closeQuietly(pendingOutput) || failed
-        failed = closeQuietly(inputOwner) || failed
-        return failed
-    }
-
-    private fun closeQuietly(resource: Closeable?): Boolean {
-        if (resource == null) return false
-        return try {
-            resource.close()
-            false
-        } catch (ignored: IOException) {
-            true
-        }
-    }
-
     private fun finalizeResult(
         result: NasTransferResult,
         cancellation: NasCancellation,
-        deadline: NasDeadline,
-        closeFailed: Boolean
+        deadline: NasDeadline
     ): NasTransferResult = when {
         cancellation.isCancelled -> NasTransferResult.Cancelled
-        closeFailed && result is NasTransferResult.Complete -> NasTransferResult.Failed(NasFailure.IO_ERROR)
         result is NasTransferResult.Complete && deadline.isExpired() -> NasTransferResult.Failed(NasFailure.TIMED_OUT)
         else -> result
     }
@@ -203,6 +196,35 @@ object NasStreamCopier {
         data class Data(val count: Int) : ReadResult
         data class Failed(val reason: NasFailure) : ReadResult
     }
+}
+
+private fun closeOwnedStreams(
+    output: OutputStream,
+    inputOwner: Closeable?,
+    outputOwner: Closeable?
+): Throwable? {
+    var failure: Throwable? = null
+    val pendingOutput = outputOwner ?: output.takeIf { inputOwner == null }
+    failure = combineFailures(failure, closeCapturing(pendingOutput))
+    failure = combineFailures(failure, closeCapturing(inputOwner))
+    return failure
+}
+
+private fun closeCapturing(resource: Closeable?): Throwable? {
+    if (resource == null) return null
+    return try {
+        resource.close()
+        null
+    } catch (error: Throwable) {
+        error
+    }
+}
+
+private fun combineFailures(primary: Throwable?, additional: Throwable?): Throwable? {
+    if (additional == null) return primary
+    if (primary == null) return additional
+    if (primary !== additional) primary.addSuppressed(additional)
+    return primary
 }
 
 private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
