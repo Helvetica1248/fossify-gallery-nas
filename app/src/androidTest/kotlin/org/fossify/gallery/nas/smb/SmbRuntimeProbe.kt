@@ -14,16 +14,24 @@ import javax.net.SocketFactory
 
 /** Local-only device smoke test: no saved sources, NAS credentials or remote server are accessed. */
 class SmbRuntimeProbe : Instrumentation() {
+    private var phase: String? = null
     private var stage = "start"
     @Volatile private var workerFailure = "none"
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        phase = arguments?.getString("probe")
         start()
     }
 
     override fun onStart() {
         val result = Bundle()
         try {
+            if (phase == "p4-write" || phase == "p4-read") {
+                stage = "P4 storage"
+                result.putString("result", org.fossify.gallery.nas.storage.NasStorageProbe.run(targetContext, phase!!))
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             cryptoAndAbort()
             // Exercise Android's network adapter without connecting to an endpoint.
             stage = "Android network"
