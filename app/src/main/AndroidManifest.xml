@@ -142,6 +142,9 @@
             android:label="@string/customize_colors"
             android:parentActivityName=".activities.SettingsActivity" />
 
+        <activity android:name=".activities.NasBrowserActivity" android:exported="false" />
+        <activity android:name=".activities.NasViewerActivity" android:exported="false" />
+
         <activity
             android:name=".activities.NasSourcesActivity"
             android:exported="false" />

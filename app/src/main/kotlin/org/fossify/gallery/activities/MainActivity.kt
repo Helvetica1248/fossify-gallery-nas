@@ -509,6 +509,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
                 R.id.column_count -> changeColumnCount()
                 R.id.set_as_default_folder -> setAsDefaultFolder()
                 R.id.more_apps_from_us -> launchMoreAppsFromUsIntent()
+                R.id.nas_albums -> startActivity(Intent(this, NasBrowserActivity::class.java))
                 R.id.settings -> launchSettings()
                 R.id.about -> launchAbout()
                 else -> return@setOnMenuItemClickListener false
