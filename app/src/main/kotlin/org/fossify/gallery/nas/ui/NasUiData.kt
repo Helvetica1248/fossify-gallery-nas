@@ -1,6 +1,7 @@
 package org.fossify.gallery.nas.ui
 
 import android.content.Context
+import java.io.File
 import org.fossify.gallery.R
 import org.fossify.gallery.BuildConfig
 import org.fossify.gallery.nas.cache.NasCacheResult
@@ -20,7 +21,8 @@ import org.fossify.gallery.nas.transport.NasCancellation
 internal data class NasFolderView(val snapshot: NasDirectorySnapshot?, val failure: NasFailure? = null)
 
 /** Blocking UI boundary. Source revisions are resolved against current settings before any request. */
-internal class NasUiData(val repository: NasRepository, private val sourceProvider: () -> List<SavedNasSource>) {
+internal class NasUiData(val repository: NasRepository, val favorites: NasFavoriteStore,
+                         private val sourceProvider: () -> List<SavedNasSource>) {
     fun sources() = sourceProvider()
 
     fun source(key: NasSourceKey) = sources().firstOrNull { it.source.key == key }?.source
@@ -37,6 +39,15 @@ internal class NasUiData(val repository: NasRepository, private val sourceProvid
         }
     }
 
+    /** At most one listing and one image for a visible folder. Never descend recursively. */
+    fun cover(key: NasSourceKey, path: NasRelativePath, cancellation: NasCancellation): NasEntry? {
+        cancellation.throwIfCancelled()
+        val view = folder(key, path, false, cancellation)
+        cancellation.throwIfCancelled()
+        return view.snapshot?.entries?.filter(NasBrowseModel::isImage)
+            ?.minWithOrNull(compareBy<NasEntry> { it.name.lowercase(java.util.Locale.ROOT) }.thenBy { it.name })
+    }
+
     fun image(entry: NasEntry, variant: Variant, cancellation: NasCancellation): NasCacheResult {
         val source = source(entry.key.source) ?: return NasCacheResult.Failed(NasFailure.NOT_FOUND)
         return if (variant == Variant.ORIGINAL) repository.fetchOriginal(source, entry, cancellation)
@@ -47,7 +58,8 @@ internal class NasUiData(val repository: NasRepository, private val sourceProvid
         // Internal instrumentation seam; release builds always use the real P2/P4 stores.
         internal var fixture: NasUiData? = null
         fun get(context: Context): NasUiData = (if (BuildConfig.DEBUG) fixture else null) ?: real(context)
-        private fun real(context: Context): NasUiData = NasUiData(AndroidNasRepository.get(context)) {
+        private fun real(context: Context): NasUiData = NasUiData(AndroidNasRepository.get(context),
+            NasFavoriteStore(File(context.noBackupFilesDir, "nas-settings/favorites.bin"))) {
             AndroidNasSettings.get(context).list()
         }
     }

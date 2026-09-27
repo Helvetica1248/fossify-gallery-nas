@@ -24,7 +24,7 @@ follow the available width; labels use two lines and ellipsis for long filenames
 
 Thumbnail requests start only for attached, actually visible cells. Binding/prefetch alone does not
 start a request. P4 first reuses cached thumbnails; a miss may explicitly fetch the visible item.
-Before launching the viewer, visible thumbnail requests are cancelled and joined off the main
+Before opening a folder or launching the viewer, visible thumbnail requests are cancelled and joined off the main
 thread (the UI coroutine suspends), preventing a duplicate original fetch while a thumbnail owns
 the same cache reservation. Recycle/detach/stop cancels work and blocks stale results from reaching another item. Thumbnail
 BitmapFactory decoding happens on IO while a lease is held; a fully decoded bitmap can then release
@@ -83,9 +83,10 @@ source/folder and selected remote item rather than serializing an image list or 
 
 ## Automated verification
 
-Seven JVM focused tests cover format filtering, ordering, exact viewer selection, cached folder and
+Eleven JVM focused tests cover format filtering, ordering, exact viewer selection, cached folder and
 failed-refresh retention, offline cached thumbnail/original reuse, safe cache-miss failure without
-retry, and cancellation that releases a late lease without delivering to a destroyed view.
+retry, cancellation that releases a late lease without delivering to a destroyed view, favorite persistence/removal
+and atomic save failure, and bounded cached folder cover selection without recursive traversal.
 
 The P5 instrumentation phase uses the real Activities with a debug-only internal NasUiData fixture
 injection, independent Room DB/cache and synthetic JPEG/PNG/WebP/two-frame GIF. Release ignores the
@@ -119,7 +120,7 @@ Use the final Debug APK from `artifacts/nas-p5-pixel/`. Existing app settings ar
 9. Verify the viewer has no write/export actions. Check NAS audit records for absence of client write/create/delete/rename;
    do not test permissions by attempting a write. Human PASS/FAIL must be supplied by the user.
 
-## Validation record
+## Initial P5 validation record
 
 Validated 2026-09-28 (JST).
 
@@ -145,3 +146,42 @@ multi-touch interception from accessible click handling, and joined cancelled th
 before viewer launch to avoid competing original reservations. The UI probe was corrected to wait
 for Activity/pager transitions and report assertions safely rather than throwing them on Android's
 main thread. No unresolved STOP condition was found. Keep this PR Draft for real-NAS Human Review.
+
+## Favorite folders and folder covers (Human Review follow-up)
+
+The user reported the original P5 functionality working and requested folder bookmarks and automatic
+folder thumbnails. These additions remain in the same P5 PR; no merge is authorized by that feedback.
+
+- Open a folder and use the toolbar star to add/remove it. NAS Albums lists favorites first, marked
+  with a star, source display name and relative path. A tap opens that folder directly. Source roots
+  can also be bookmarked. Back follows the normal parent-folder navigation.
+- Bookmarks persist locally in `noBackupFilesDir/nas-settings/favorites.bin`, keyed by source UUID
+  and relative path. They survive app restarts and source name/mode/credential edits, and resolve
+  against the source's current revision. If the same source is repointed to a different root/share,
+  bookmarks follow its new root. Removed sources are hidden; no credentials are stored here.
+- Favorite updates are serialized and atomically replace the file off the main thread. They never
+  modify the NAS or local Gallery DB. A save failure leaves the prior file and reports a fixed message.
+- A visible folder/favorite card obtains one cached child listing (or makes one listing request if
+  uncached), then chooses the first supported direct-child image by name. It retrieves only that
+  image's thumbnail via P4. No recursive search or whole-folder image downloads are introduced.
+- Cached folder covers work offline. Empty, unsupported-only, inaccessible or offline-uncached folders
+  retain their folder icon. A failed cover does not erase the listing or trigger an automatic retry loop.
+  A child folder's saved listing is updated by opening that folder and using Refresh.
+- Folder/grid/viewer transitions cancel and join cover work before destination requests start. Rebinding
+  invalidates old row identities so they cannot restart during navigation.
+
+NAS delete/move is deferred: the user's condition was to implement it if simple. The current transport
+exposes only reads; reliable writes require a separate design for permissions, confirmation, overwrite,
+partial failure and catalog/cache invalidation. No NAS write UI or permission changes are introduced.
+
+Additional Human Review: add a nested folder with the star, return to NAS Albums, reopen it from the
+favorite, restart the app and verify persistence, then remove it. Check folder covers online and after
+turning VPN off. Folders containing only other folders intentionally retain the folder icon.
+
+Follow-up validation: Gradle **229/229 PASS** (11 P5 focused), detekt and lintFossDebug PASS
+(0 unfiltered errors / 77 warnings; four new untranslated fallback warnings). Debug and unsigned
+Release/R8 builds PASS. Pixel fixture PASS for favorites add/open/remove, folder covers and all
+previous viewer/offline/lease checks. Fixture captures confirm dark-mode labels and aligned cards.
+No real NAS writes or credential changes were performed. The added features await user confirmation.
+
+Updated Debug SHA-256: `27e1ce9d2bec4632faf5d3810a89b26807ab75802eea1f888ba870d96bccb756`.

@@ -56,7 +56,11 @@ class NasUiTest {
             override fun remove(key: String) { rows.remove(key) }
         })
     }
-    private val data by lazy { NasUiData(repository()) { listOf(SavedNasSource(source, "fixture")) } }
+    private val data by lazy {
+        NasUiData(repository(), NasFavoriteStore(File(temp.root, "favorites.bin"))) {
+            listOf(SavedNasSource(source, "fixture"))
+        }
+    }
 
     @Test fun supportedExtensionsAreCaseInsensitiveAndExcludeVideoAndSpecialFormats() {
         val entries = listOf("a.JPG", "b.jPeG", "c.PNG", "d.WebP", "e.GIF", "f.mp4", "g.avif", "h.raw", "i.svg")
@@ -139,6 +143,53 @@ class NasUiTest {
         // Source cleanup can physically delete the file only after the late lease was released.
         cache.clearSource(key.id)
         assertTrue(temp.root.walk().none { it.isFile })
+    }
+
+    @Test fun favoriteFoldersPersistDeduplicateAndRemoveWithoutChangingOtherSources() {
+        val file = File(temp.root, "favorite-test.bin")
+        val store = NasFavoriteStore(file)
+        val favorite = NasFavoriteFolder(key.id, path.child("写真"))
+        val other = NasFavoriteFolder(UUID.randomUUID(), favorite.path)
+        store.set(favorite, true)
+        store.set(favorite, true)
+        store.set(other, true)
+        assertEquals(listOf(favorite, other), NasFavoriteStore(file).list())
+        store.set(favorite, false)
+        assertEquals(listOf(other), NasFavoriteStore(file).list())
+        val root = NasFavoriteFolder(key.id, NasRelativePath.ROOT)
+        store.set(root, true)
+        assertEquals(listOf(other, root), NasFavoriteStore(file).list())
+    }
+
+    @Test fun failedFavoriteWritePreservesPreviouslySavedBookmarks() {
+        val file = File(temp.root, "favorite-failure.bin")
+        val store = NasFavoriteStore(file)
+        val favorite = NasFavoriteFolder(key.id, path.child("photo"))
+        store.set(favorite, true)
+        // Valid SMB path whose modified UTF encoding exceeds DataOutput's limit.
+        val longPath = NasRelativePath.parse(List(100) { "写".repeat(240) }.joinToString("/"))
+        assertTrue(runCatching { store.set(NasFavoriteFolder(key.id, longPath), true) }.isFailure)
+        assertEquals(listOf(favorite), NasFavoriteStore(file).list())
+    }
+
+    @Test fun folderCoverSelectsOneSupportedImageFromCachedChildrenWithoutNetwork() {
+        val selected = entry("a.JPG")
+        snapshot = NasDirectorySnapshot(key, path, 1, 1, listOf(entry("b.png"), entry("0.mp4"),
+            entry("0-folder").copy(kind = NasEntryKind.DIRECTORY), selected))
+        assertEquals(selected, data.cover(key, path, NasCancellation()))
+        assertEquals(0, network)
+        snapshot = NasDirectorySnapshot(key, path, 2, 2,
+            listOf(entry("nested").copy(kind = NasEntryKind.DIRECTORY)))
+        assertNull(data.cover(key, path, NasCancellation()))
+        assertEquals(0, network) // No recursive listing to hunt for a cover.
+    }
+
+    @Test fun folderCoverFailureAndCancellationDoNotLoopOrEraseCachedListing() {
+        assertNull(data.cover(key, path, NasCancellation()))
+        assertEquals(1, network)
+        val cancellation = NasCancellation().apply { cancel() }
+        assertTrue(runCatching { data.cover(key, path, cancellation) }.isFailure)
+        assertEquals(1, network)
     }
 
     private fun entry(name: String) = NasEntry(NasRemoteKey(key, path.child(name)), NasEntryKind.FILE, 4, 1)

@@ -2,6 +2,8 @@ package org.fossify.gallery.activities
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.MenuItem
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
@@ -20,6 +22,7 @@ import org.fossify.gallery.nas.data.NasDirectorySnapshot
 import org.fossify.gallery.nas.model.NasEntryKind
 import org.fossify.gallery.nas.model.NasRelativePath
 import org.fossify.gallery.nas.model.NasSourceKey
+import org.fossify.gallery.nas.ui.NasFavoriteFolder
 import org.fossify.gallery.nas.ui.NasBrowseModel
 import org.fossify.gallery.nas.ui.NasBrowserAdapter
 import org.fossify.gallery.nas.ui.NasBrowserRow
@@ -34,6 +37,9 @@ import java.util.UUID
 class NasBrowserActivity : SimpleActivity() {
     private val binding by viewBinding(ActivityNasBrowserBinding::inflate)
     private val request = NasUiRequest()
+    private val favoriteRequest = NasUiRequest()
+    private var favorite = false
+    private var favoriteBusy = false
     private val adapter = NasBrowserAdapter(lifecycleScope, ::open)
     private var source: NasSourceKey? = null
     private var folder = NasRelativePath.ROOT
@@ -59,10 +65,12 @@ class NasBrowserActivity : SimpleActivity() {
         binding.nasBrowserToolbar.apply {
             menu.add(0, REFRESH, 0, R.string.nas_refresh)
             menu.add(0, SORT, 1, R.string.nas_sort)
+            menu.add(0, FAVORITE, 2, R.string.nas_favorite_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     REFRESH -> if (source == null) sources() else loadFolder(true)
                     SORT -> chooseSort()
+                    FAVORITE -> toggleFavorite()
                 }
                 true
             }
@@ -77,12 +85,16 @@ class NasBrowserActivity : SimpleActivity() {
     override fun onStart() {
         super.onStart()
         adapter.setActive(true)
-        if (source == null) sources() else if (!opened) { opened = true; loadFolder(false) }
+        if (source == null) sources() else {
+            readFavorite()
+            if (!opened) { opened = true; loadFolder(false) }
+        }
     }
 
     override fun onStop() {
         opening?.cancel()
         request.cancel()
+        favoriteRequest.cancel()
         adapter.setActive(false)
         binding.nasBrowserProgress.isVisible = false
         super.onStop()
@@ -92,10 +104,24 @@ class NasBrowserActivity : SimpleActivity() {
         request.cancel()
         source = null
         snapshot = null
+        readFavorite()
         binding.nasBrowserToolbar.setTitle(R.string.nas_albums)
         binding.nasBrowserSettings.isVisible = true
         binding.nasBrowserProgress.isVisible = true
-        request.start(lifecycleScope, work = { NasUiData.get(this).sources() }) { result ->
+        request.start(lifecycleScope, work = {
+            val data = NasUiData.get(this)
+            val sources = data.sources()
+            val favorites = data.favorites.list().mapNotNull { bookmark ->
+                sources.firstOrNull { it.source.key.id == bookmark.sourceId }?.let {
+                    NasBrowserRow(bookmark.path.name.ifBlank {
+                        it.displayName.ifBlank { getString(R.string.nas_sources) } },
+                        source = it, favorite = bookmark.path)
+                }
+            }
+            favorites + sources.map {
+                NasBrowserRow(it.displayName.ifBlank { getString(R.string.nas_sources) }, it)
+            }
+        }) { result ->
             binding.nasBrowserProgress.isVisible = false
             val items = result.getOrNull()
             binding.nasBrowserStatus.setText(when {
@@ -103,19 +129,29 @@ class NasBrowserActivity : SimpleActivity() {
                 items.isEmpty() -> R.string.nas_empty
                 else -> R.string.nas_albums
             })
-            adapter.submit(items.orEmpty().map {
-                NasBrowserRow(it.displayName.ifBlank { getString(R.string.nas_sources) }, it)
-            })
+            adapter.submit(items.orEmpty())
         }
     }
 
     private fun open(row: NasBrowserRow) {
+        if (opening?.isActive == true) return
+        binding.nasBrowserProgress.isVisible = true
+        opening = lifecycleScope.launch {
+            // Folder covers can own the same original needed by the destination grid or viewer.
+            adapter.finishRequests()
+            binding.nasBrowserProgress.isVisible = false
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) openReady(row)
+        }
+    }
+
+    private fun openReady(row: NasBrowserRow) {
         row.source?.let {
             source = it.source.key
-            sourceName = row.title
-            folder = NasRelativePath.ROOT
+            sourceName = it.displayName.ifBlank { getString(R.string.nas_sources) }
+            folder = row.favorite ?: NasRelativePath.ROOT
             snapshot = null
             adapter.submit(emptyList())
+            adapter.setActive(true)
             opened = true
             loadFolder(false)
             return
@@ -125,19 +161,11 @@ class NasBrowserActivity : SimpleActivity() {
                 folder = entry.key.path
                 snapshot = null
                 adapter.submit(emptyList())
+                adapter.setActive(true)
                 loadFolder(false)
             } else {
                 val identity = NasViewerIdentity(entry.key.source, folder, entry.key.path, sort, descending)
-                if (opening?.isActive == true) return
-                binding.nasBrowserProgress.isVisible = true
-                opening = lifecycleScope.launch {
-                    adapter.finishRequests()
-                    binding.nasBrowserProgress.isVisible = false
-                    if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                        startActivity(Intent(this@NasBrowserActivity, NasViewerActivity::class.java)
-                            .putExtras(identity.bundle()))
-                    }
-                }
+                startActivity(Intent(this, NasViewerActivity::class.java).putExtras(identity.bundle()))
             }
         }
     }
@@ -145,6 +173,7 @@ class NasBrowserActivity : SimpleActivity() {
     private fun loadFolder(refresh: Boolean) {
         val key = source ?: return
         val path = folder
+        readFavorite()
         if (snapshot == null) binding.nasBrowserStatus.setText(R.string.nas_busy)
         binding.nasBrowserToolbar.title = if (path.isRoot) sourceName else path.name
         binding.nasBrowserSettings.isVisible = false
@@ -169,6 +198,49 @@ class NasBrowserActivity : SimpleActivity() {
             rows.isEmpty() -> R.string.nas_no_images
             else -> R.string.nas_cached
         })
+    }
+
+    private fun readFavorite() {
+        favoriteRequest.cancel()
+        val key = source
+        val item = binding.nasBrowserToolbar.menu.findItem(FAVORITE)
+        item.isVisible = key != null
+        binding.nasBrowserToolbar.menu.findItem(SORT).isVisible = key != null
+        if (key == null) return
+        favoriteBusy = true
+        item.isEnabled = false
+        val bookmark = NasFavoriteFolder(key.id, folder)
+        favoriteRequest.start(lifecycleScope, work = { bookmark in NasUiData.get(this).favorites.list() }) { result ->
+            favoriteBusy = false
+            favorite = result.getOrDefault(false)
+            item.isEnabled = result.isSuccess
+            showFavorite()
+        }
+    }
+
+    private fun showFavorite() {
+        binding.nasBrowserToolbar.menu.findItem(FAVORITE).apply {
+            setTitle(if (favorite) R.string.nas_favorite_remove else R.string.nas_favorite_add)
+            setIcon(if (favorite) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off)
+        }
+    }
+
+    private fun toggleFavorite() {
+        val key = source ?: return
+        if (favoriteBusy) return
+        val bookmark = NasFavoriteFolder(key.id, folder)
+        val selected = !favorite
+        favoriteBusy = true
+        binding.nasBrowserToolbar.menu.findItem(FAVORITE).isEnabled = false
+        favoriteRequest.start(lifecycleScope, work = {
+            NasUiData.get(this).favorites.set(bookmark, selected)
+            selected
+        }) { result ->
+            favoriteBusy = false
+            binding.nasBrowserToolbar.menu.findItem(FAVORITE).isEnabled = true
+            if (result.isSuccess) { favorite = selected; showFavorite() }
+            else Toast.makeText(this, R.string.nas_favorite_error, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun chooseSort() {
@@ -214,5 +286,6 @@ class NasBrowserActivity : SimpleActivity() {
         const val CELL_WIDTH_DP = 150
         const val REFRESH = 1
         const val SORT = 2
+        const val FAVORITE = 3
     }
 }

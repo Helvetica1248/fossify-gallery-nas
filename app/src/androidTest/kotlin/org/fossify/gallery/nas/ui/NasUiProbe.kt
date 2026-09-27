@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.util.Base64
 import android.view.View
 import android.widget.ImageView
+import androidx.appcompat.widget.Toolbar
 import androidx.exifinterface.media.ExifInterface
 import androidx.recyclerview.widget.RecyclerView
 import androidx.room.Room
@@ -58,20 +59,22 @@ internal object NasUiProbe {
         val context = instrumentation.targetContext
         val dbFile = File(context.noBackupFilesDir, "nas-p5-probe.db")
         val cacheRoot = File(context.cacheDir, "nas-p5-probe")
+        val favoritesFile = File(context.noBackupFilesDir, "nas-p5-favorites-probe.bin")
+        favoritesFile.delete()
         context.deleteDatabase(dbFile.absolutePath)
         cacheRoot.deleteRecursively()
         val db = Room.databaseBuilder(context, NasCatalogDatabase::class.java, dbFile.absolutePath).build()
         val activities = mutableListOf<Activity>()
         try {
             val repository = prepare(db, cacheRoot)
-            NasUiData.fixture = NasUiData(repository) { listOf(SavedNasSource(source, "NAS local fixture")) }
+            NasUiData.fixture = NasUiData(repository, NasFavoriteStore(favoritesFile)) { listOf(SavedNasSource(source, "NAS local fixture")) }
             exercise(instrumentation, activities)
             stage = "lease release"
             ui(instrumentation) { activities.reversed().forEach { it.finish() } }
             instrumentation.waitForIdleSync()
             repository.clearSourceCache(source.key.id)
             await { cacheRoot.walk().none { it.isFile } }
-            return "PASS: entry/source/folder/grid, JPEG EXIF+PNG+WebP+GIF, swipe/zoom/fullscreen/back, offline, lease cleanup"
+            return "PASS: favorites add/open/remove, folder cover, entry/source/folder/grid, JPEG EXIF+PNG+WebP+GIF, swipe/zoom/fullscreen/back, offline, lease cleanup"
         } finally {
             ui(instrumentation) { activities.reversed().forEach { it.finish() } }
             instrumentation.waitForIdleSync()
@@ -79,6 +82,7 @@ internal object NasUiProbe {
             db.close()
             context.deleteDatabase(dbFile.absolutePath)
             cacheRoot.deleteRecursively()
+            favoritesFile.delete()
         }
     }
 
@@ -128,6 +132,15 @@ internal object NasUiProbe {
         i.removeMonitor(browserMonitor)
         stage = "source list"
         clickRow(i, browser, 0, 1)
+        stage = "folder cover"
+        awaitUi(i) {
+            val grid = browser.findViewById<RecyclerView>(R.id.nas_browser_grid)
+            val drawable = grid.findViewHolderForAdapterPosition(0)?.itemView
+                ?.findViewById<ImageView>(R.id.nas_item_image)?.drawable as? BitmapDrawable
+            drawable?.bitmap?.width == 256
+        }
+        SystemClock.sleep(500)
+        screenshot(i, "nas-p5-cover.png")
         stage = "folder navigation"
         clickRow(i, browser, 0, 1)
         stage = "grid thumbnails"
@@ -141,6 +154,8 @@ internal object NasUiProbe {
         }
         SystemClock.sleep(500) // Let the Activity transition finish before the diagnostic capture.
         screenshot(i, "nas-p5-grid.png")
+        stage = "add favorite"
+        favorite(i, browser, R.string.nas_favorite_add, R.string.nas_favorite_remove)
         val viewerMonitor = i.addMonitor(NasViewerActivity::class.java.name, null, false)
         clickRow(i, browser, 0, 4)
         val viewer = checkNotNull(i.waitForMonitorWithTimeout(viewerMonitor, 5000)) as NasViewerActivity
@@ -180,6 +195,23 @@ internal object NasUiProbe {
         stage = "browser back"
         ui(i) { browser.onBackPressedDispatcher.onBackPressed() }
         awaitUi(i) { browser.findViewById<RecyclerView>(R.id.nas_browser_grid).adapter?.itemCount == 1 }
+        ui(i) { browser.onBackPressedDispatcher.onBackPressed() }
+        stage = "favorite shortcut"
+        awaitUi(i) { browser.findViewById<RecyclerView>(R.id.nas_browser_grid).adapter?.itemCount == 2 }
+        SystemClock.sleep(500)
+        screenshot(i, "nas-p5-favorites.png")
+        clickRow(i, browser, 0, 2)
+        awaitUi(i) { browser.findViewById<RecyclerView>(R.id.nas_browser_grid).adapter?.itemCount == 4 }
+        stage = "remove favorite"
+        favorite(i, browser, R.string.nas_favorite_remove, R.string.nas_favorite_add)
+        check(NasUiData.fixture!!.favorites.list().isEmpty())
+    }
+
+    private fun favorite(i: Instrumentation, browser: NasBrowserActivity, before: Int, after: Int) {
+        val menu = browser.findViewById<Toolbar>(R.id.nas_browser_toolbar).menu
+        awaitUi(i) { menu.findItem(3).isEnabled && menu.findItem(3).title == browser.getString(before) }
+        ui(i) { check(menu.performIdentifierAction(3, 0)) }
+        awaitUi(i) { menu.findItem(3).isEnabled && menu.findItem(3).title == browser.getString(after) }
     }
 
     private fun clickRow(i: Instrumentation, activity: Activity, position: Int, count: Int) {

@@ -17,4 +17,8 @@
     <string name="nas_folder_label">Folder</string>
     <string name="nas_thumbnail_error">Thumbnail unavailable</string>
     <string name="nas_cached">Saved listing · Refresh to check for changes</string>
+    <string name="nas_favorite_add">Add favorite folder</string>
+    <string name="nas_favorite_remove">Remove favorite folder</string>
+    <string name="nas_favorite_detail">★ %1$s · %2$s</string>
+    <string name="nas_favorite_error">Could not save the favorite folder.</string>
 </resources>

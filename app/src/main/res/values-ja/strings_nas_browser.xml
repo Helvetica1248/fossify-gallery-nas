@@ -17,4 +17,8 @@
     <string name="nas_folder_label">フォルダー</string>
     <string name="nas_thumbnail_error">サムネイルを取得できません</string>
     <string name="nas_cached">保存済み一覧・変更を確認するには更新してください</string>
+    <string name="nas_favorite_add">お気に入りフォルダーに追加</string>
+    <string name="nas_favorite_remove">お気に入りフォルダーから解除</string>
+    <string name="nas_favorite_detail">★ %1$s · %2$s</string>
+    <string name="nas_favorite_error">お気に入りフォルダーを保存できませんでした。</string>
 </resources>
