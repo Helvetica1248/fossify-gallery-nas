@@ -11,6 +11,7 @@ import kotlinx.coroutines.joinAll
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.gallery.R
 import org.fossify.gallery.databinding.ItemNasBrowserBinding
+import org.fossify.gallery.nas.external.NasExternalTypes
 import org.fossify.gallery.nas.cache.NasCacheResult
 import org.fossify.gallery.nas.model.NasCacheKey.Variant
 import org.fossify.gallery.nas.model.NasConnectionMode
@@ -86,8 +87,15 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
                 value.entry?.kind == NasEntryKind.DIRECTORY -> context.getString(R.string.nas_folder_label)
                 else -> ""
             }
-            binding.nasItemImage.setImageResource(if (value.entry?.kind == NasEntryKind.FILE)
-                android.R.drawable.ic_menu_gallery else R.drawable.ic_folders_vector)
+            val external = value.entry?.let(NasExternalTypes::mime)
+            binding.nasItemImage.setImageResource(when {
+                external == "application/pdf" -> android.R.drawable.ic_menu_view
+                external != null -> android.R.drawable.ic_media_play
+                value.entry?.kind == NasEntryKind.FILE -> android.R.drawable.ic_menu_gallery
+                else -> R.drawable.ic_folders_vector
+            })
+            if (external != null) binding.nasItemDetail.setText(
+                if (external == "application/pdf") R.string.nas_external_pdf else R.string.nas_external_video)
             binding.root.contentDescription = value.title
             binding.root.setOnClickListener { click(value) }
             if (itemView.isAttachedToWindow) itemView.post { load() }
@@ -96,6 +104,7 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
         fun load() {
             val value = row ?: return
             if (value.entry == null && value.favorite == null) return
+            if (value.entry?.let(NasExternalTypes::mime) != null) return
             if (!active || attempted) return
             if (!itemView.getGlobalVisibleRect(Rect())) return
             attempted = true

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_search">Search files</string>
+    <string name="nas_search_hint">Part of a file or folder name</string>
+    <string name="nas_search_recursive">Include subfolders</string>
+    <string name="nas_search_cached">Search saved listings only (offline)</string>
+    <string name="nas_search_scope">Search within the current NAS folder. Up to 256 folders, 100,000 entries, 500 results or 2 minutes per search. Narrow the folder or query for larger libraries. File contents are not searched.</string>
+    <string name="nas_search_running">Searching names… No image or document contents are downloaded.</string>
+    <string name="nas_search_cancel">Stop search</string>
+    <string name="nas_search_count">%1$d results from %2$d folders</string>
+    <string name="nas_search_partial">Partial results: stopped, reached a limit, or some folders could not be searched.</string>
+    <string name="nas_search_cached_note">Includes saved listings. These may be out of date.</string>
+    <string name="nas_search_unsupported">This type can be found, but cannot be opened here.</string>
+    <string name="nas_external_choose">Open with (read-only NAS access)</string>
+    <string name="nas_external_no_app">No compatible external app is available. Install a trusted PDF viewer or video player.</string>
+    <string name="nas_external_pdf">PDF · external app</string>
+    <string name="nas_external_video">Video · external app</string>
+</resources>

@@ -8,7 +8,7 @@
     <string name="nas_sort_name">Name</string>
     <string name="nas_sort_modified">Modified (newest first)</string>
     <string name="nas_folder_empty">This folder is empty.</string>
-    <string name="nas_no_images">No supported images in this folder.</string>
+    <string name="nas_no_images">No supported files in this folder</string>
     <string name="nas_load_error">Could not load from NAS. Saved items remain available.</string>
     <string name="nas_image_error">Could not display this image. Tap Retry to fetch it again.</string>
     <string name="nas_source_changed">This source or item is no longer available. Reopen NAS Albums.</string>

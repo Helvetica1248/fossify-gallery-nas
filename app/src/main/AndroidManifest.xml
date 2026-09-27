@@ -32,6 +32,14 @@
         tools:node="remove" />
 
     <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="video/*" />
+        </intent>
         <package android:name="org.fossify.gallery.debug" />
         <package android:name="org.fossify.gallery" />
     </queries>
@@ -141,6 +149,11 @@
             android:exported="false"
             android:label="@string/customize_colors"
             android:parentActivityName=".activities.SettingsActivity" />
+
+        <activity android:name=".activities.NasSearchActivity" android:exported="false" />
+        <provider android:name=".nas.external.NasExternalProvider"
+            android:authorities="${applicationId}.nas.external"
+            android:exported="false" android:grantUriPermissions="true" />
 
         <activity android:name=".activities.NasBrowserActivity" android:exported="false" />
         <activity android:name=".activities.NasViewerActivity" android:exported="false" />

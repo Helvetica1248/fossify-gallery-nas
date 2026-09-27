@@ -21,6 +21,7 @@ internal class NasDiskCache(
     private val root: File,
     private val index: NasCacheIndex,
     val limits: NasCacheLimits = NasCacheLimits(),
+    private val maxIndexRows: Int = MAX_INDEX_ROWS,
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val leases = mutableMapOf<String, Int>()
@@ -29,6 +30,7 @@ internal class NasDiskCache(
     private val pending = mutableMapOf<String, Reservation>()
 
     init {
+        require(maxIndexRows > 0)
         ensureDirectories()
         // No live writers exist when the process singleton is first created.
         File(root, "tmp").listFiles()?.filter { it.name.matches(PART_NAME) }?.forEach { it.delete() }
@@ -63,6 +65,7 @@ internal class NasDiskCache(
         val key = NasCacheKey.forEntry(entry, variant, DECODER_REVISION)
         if (pending.containsKey(key) || leases.containsKey(key)) throw NasCacheException(NasFailure.IO_ERROR)
         ensureDirectories()
+        trimIndex(key)
         makeRoom(variant, bytes)
         val part = File(root, "tmp/$key.part")
         preparePart(part)
@@ -115,6 +118,22 @@ internal class NasDiskCache(
     private fun preparePart(part: File) {
         if (part.exists() && !part.delete()) throw NasCacheException(NasFailure.IO_ERROR)
         if (!part.createNewFile()) throw NasCacheException(NasFailure.IO_ERROR)
+    }
+
+    private fun trimIndex(incoming: String) {
+        val live = index.all().filter { row ->
+            val exists = file(row.key, Variant.valueOf(row.variant)).isFile
+            if (!exists) index.remove(row.key)
+            exists
+        }
+        val keys = (live.map { it.key } + pending.keys + incoming).toMutableSet()
+        for (row in live.sortedBy { it.lastUsed }) {
+            if (keys.size <= maxIndexRows) break
+            if (row.key == incoming || row.key in leases || row.key in pending) continue
+            discard(row.key, Variant.valueOf(row.variant))
+            keys.remove(row.key)
+        }
+        if (keys.size > maxIndexRows) throw NasCacheException(NasFailure.LOW_STORAGE)
     }
 
     private fun makeRoom(variant: Variant, bytes: Long) {
@@ -183,6 +202,7 @@ internal class NasDiskCache(
     }
 
     private companion object {
+        const val MAX_INDEX_ROWS = 8192
         val CACHE_NAME = Regex("[0-9a-f]{64}")
         val PART_NAME = Regex("[0-9a-f]{64}\\.part")
     }

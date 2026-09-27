@@ -8,7 +8,7 @@
     <string name="nas_sort_name">名前</string>
     <string name="nas_sort_modified">更新日時（新しい順）</string>
     <string name="nas_folder_empty">このフォルダーは空です。</string>
-    <string name="nas_no_images">表示できる画像がありません。</string>
+    <string name="nas_no_images">このフォルダーに対応ファイルはありません</string>
     <string name="nas_load_error">NASから読み込めませんでした。保存済みの項目は引き続き表示できます。</string>
     <string name="nas_image_error">この画像を表示できません。再試行すると取得し直します。</string>
     <string name="nas_source_changed">接続先または項目が見つかりません。NASアルバムを開き直してください。</string>

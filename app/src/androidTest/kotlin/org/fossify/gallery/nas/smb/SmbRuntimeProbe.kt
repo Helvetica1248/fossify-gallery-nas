@@ -26,6 +26,12 @@ class SmbRuntimeProbe : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (phase == "p6-local") {
+                stage = "P6 local"
+                result.putString("result", org.fossify.gallery.nas.next.NasNextProbe.run(targetContext))
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (phase == "p5-ui") {
                 stage = "P5 UI"
                 result.putString("result", org.fossify.gallery.nas.ui.NasUiProbe.run(this))

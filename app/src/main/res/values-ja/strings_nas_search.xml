@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_search">ファイルを検索</string>
+    <string name="nas_search_hint">ファイル名・フォルダー名の一部</string>
+    <string name="nas_search_recursive">サブフォルダーを含む</string>
+    <string name="nas_search_cached">保存済みの一覧だけを検索（オフライン）</string>
+    <string name="nas_search_scope">現在のNASフォルダー内を検索します。1回につき256フォルダー・10万項目・500結果・2分までです。大きなライブラリーは場所や語句を絞ってください。ファイルの内容は検索しません。</string>
+    <string name="nas_search_running">名前を検索中… 画像・文書の内容はダウンロードしません。</string>
+    <string name="nas_search_cancel">検索を中止</string>
+    <string name="nas_search_count">検索結果 %1$d件 / %2$dフォルダー</string>
+    <string name="nas_search_partial">一部の結果です：中止・上限到達・未検索フォルダーがあります。</string>
+    <string name="nas_search_cached_note">保存済みの一覧を含みます。NASの最新状態とは限りません。</string>
+    <string name="nas_search_unsupported">この形式は検索できますが、この画面からは開けません。</string>
+    <string name="nas_external_choose">別アプリで開く（NASは読み取り専用）</string>
+    <string name="nas_external_no_app">対応する外部アプリを利用できません。信頼できるPDFビューアーまたは動画プレーヤーを用意してください。</string>
+    <string name="nas_external_pdf">PDF・別アプリで開く</string>
+    <string name="nas_external_video">動画・別アプリで再生</string>
+</resources>

@@ -1,5 +1,6 @@
 package org.fossify.gallery.nas.ui
 
+import org.fossify.gallery.nas.external.NasExternalTypes
 import org.fossify.gallery.nas.data.NasDirectorySnapshot
 import org.fossify.gallery.nas.model.NasEntry
 import org.fossify.gallery.nas.model.NasEntryKind
@@ -20,7 +21,7 @@ internal object NasBrowseModel {
         val names = compareBy<NasEntry> { it.name.lowercase(Locale.ROOT) }.thenBy { it.key.path.value }
         val order = if (sort == NasSort.NAME) names else compareBy<NasEntry> { it.modifiedEpochMillis ?: 0 }.then(names)
         val direction = if (descending) order.reversed() else order
-        return entries.filter { it.kind == NasEntryKind.DIRECTORY || isImage(it) }
+        return entries.filter { it.kind == NasEntryKind.DIRECTORY || isImage(it) || NasExternalTypes.mime(it) != null }
             .sortedWith(compareBy<NasEntry> { it.kind != NasEntryKind.DIRECTORY }.then(direction))
     }
 
