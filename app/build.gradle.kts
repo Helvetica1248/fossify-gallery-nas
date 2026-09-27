@@ -31,7 +31,9 @@ android {
     compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
 
     defaultConfig {
-        applicationId = project.property("APP_ID").toString()
+        applicationId = "io.github.helvetica1248.fossifygallerynas"
+        // Commons derives icon aliases from the application ID without its .debug suffix.
+        manifestPlaceholders["launcherAliasPrefix"] = applicationId!!
         minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
         targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
         versionName = project.property("VERSION_NAME").toString()

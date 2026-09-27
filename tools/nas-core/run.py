@@ -16,7 +16,9 @@ import tempfile
 
 def execute(root: Path, output: Path, compiler: str, java: str) -> None:
     output.mkdir(parents=True, exist_ok=True)
-    production = sorted((root / "app/src/main/kotlin/org/fossify/gallery/nas").rglob("*.kt"))
+    core = root / "app/src/main/kotlin/org/fossify/gallery/nas"
+    # P1 is Android-independent; Gradle covers P2 settings and Keystore.
+    production = sorted(p for area in ("data", "model", "policy", "transport") for p in (core / area).rglob("*.kt"))
     tests = sorted(p for p in (root / "app/src/test/kotlin/org/fossify/gallery/nas").glob("*.kt") if p.name != "NasCoreTest.kt")
     if not production or not tests:
         raise RuntimeError("NAS sources/tests are missing")

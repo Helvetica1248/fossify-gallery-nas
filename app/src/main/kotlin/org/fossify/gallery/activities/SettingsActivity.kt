@@ -52,6 +52,9 @@ class SettingsActivity : SimpleActivity() {
     }
 
     private fun setupSettingItems() {
+        binding.settingsNasSources.setOnClickListener {
+            startActivity(Intent(this, NasSourcesActivity::class.java))
+        }
         setupCustomizeColors()
         setupUseEnglish()
         setupLanguage()
