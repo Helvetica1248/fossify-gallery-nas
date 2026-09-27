@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<org.fossify.gallery.nas.ui.NasGestureFrame xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <com.alexvasilkov.gestures.GestureImageView android:id="@+id/nas_page_image"
+        android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="@null" />
+    <ProgressBar android:id="@+id/nas_page_progress" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_gravity="center" />
+    <LinearLayout android:id="@+id/nas_page_error" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_gravity="center" android:padding="24dp" android:gravity="center" android:orientation="vertical"
+        android:visibility="gone">
+        <TextView android:id="@+id/nas_page_message" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center" android:textColor="@android:color/white" />
+        <Button android:id="@+id/nas_page_retry" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/nas_retry" />
+    </LinearLayout>
+</org.fossify.gallery.nas.ui.NasGestureFrame>

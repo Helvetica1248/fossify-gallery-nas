@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nas_albums">NASアルバム</string>
+    <string name="nas_open_settings">NAS接続先の設定を開く</string>
+    <string name="nas_refresh">更新</string>
+    <string name="nas_retry">再試行</string>
+    <string name="nas_sort">並び順</string>
+    <string name="nas_sort_name">名前</string>
+    <string name="nas_sort_modified">更新日時（新しい順）</string>
+    <string name="nas_folder_empty">このフォルダーは空です。</string>
+    <string name="nas_no_images">表示できる画像がありません。</string>
+    <string name="nas_load_error">NASから読み込めませんでした。保存済みの項目は引き続き表示できます。</string>
+    <string name="nas_image_error">この画像を表示できません。再試行すると取得し直します。</string>
+    <string name="nas_source_changed">接続先または項目が見つかりません。NASアルバムを開き直してください。</string>
+    <string name="nas_cache_space">キャッシュの空き容量が不足しています。</string>
+    <string name="nas_image_large">この画像は128 MiBの上限を超えています。</string>
+    <string name="nas_folder_label">フォルダー</string>
+    <string name="nas_thumbnail_error">サムネイルを取得できません</string>
+    <string name="nas_cached">保存済み一覧・変更を確認するには更新してください</string>
+</resources>

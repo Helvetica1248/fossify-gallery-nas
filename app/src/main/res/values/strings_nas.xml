@@ -4,7 +4,7 @@
     <string name="nas_sources">NAS sources</string>
     <string name="nas_add_source">Add NAS source</string>
     <string name="nas_edit_source">Edit NAS source</string>
-    <string name="nas_settings_only">Save settings, then explicitly test a connection. Browsing is not available yet.</string>
+    <string name="nas_settings_only">Save settings, then test a connection. Browse photos from NAS Albums in the main menu.</string>
     <string name="nas_saved">Saved. Connection has not been tested yet.</string>
     <string name="nas_empty">No NAS sources saved.</string>
     <string name="nas_busy">Working…</string>

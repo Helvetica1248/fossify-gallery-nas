@@ -68,6 +68,7 @@
         android:icon="@drawable/ic_column_count_vector"
         android:title="@string/column_count"
         app:showAsAction="ifRoom" />
+    <item android:id="@+id/nas_albums" android:title="@string/nas_albums" app:showAsAction="never" />
     <item
         android:id="@+id/settings"
         android:icon="@drawable/ic_settings_cog_vector"

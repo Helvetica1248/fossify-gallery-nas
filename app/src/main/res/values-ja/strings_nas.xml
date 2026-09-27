@@ -3,7 +3,7 @@
     <string name="nas_sources">NAS接続先</string>
     <string name="nas_add_source">NAS接続先を追加</string>
     <string name="nas_edit_source">NAS接続先を編集</string>
-    <string name="nas_settings_only">設定を保存した後、接続をテストできます。ファイル閲覧はまだできません。</string>
+    <string name="nas_settings_only">接続先を保存して接続をテストできます。写真はメインメニューの「NASアルバム」から閲覧できます。</string>
     <string name="nas_saved">保存しました。接続はまだテストしていません。</string>
     <string name="nas_empty">NAS接続先はまだありません。</string>
     <string name="nas_busy">処理中…</string>

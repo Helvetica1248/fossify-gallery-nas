@@ -26,6 +26,12 @@ class SmbRuntimeProbe : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (phase == "p5-ui") {
+                stage = "P5 UI"
+                result.putString("result", org.fossify.gallery.nas.ui.NasUiProbe.run(this))
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (phase == "p4-write" || phase == "p4-read") {
                 stage = "P4 storage"
                 result.putString("result", org.fossify.gallery.nas.storage.NasStorageProbe.run(targetContext, phase!!))
@@ -39,7 +45,9 @@ class SmbRuntimeProbe : Instrumentation() {
             result.putString("result", "PASS: SMBJ crypto, Android network adapter, raw socket cancellation")
             finish(Activity.RESULT_OK, result)
         } catch (error: Exception) {
-            result.putString("result", "FAIL: $stage / ${error.javaClass.simpleName} / $workerFailure")
+            result.putString("result", "FAIL: $stage / ${error.javaClass.simpleName} / $workerFailure / " +
+                if (phase == "p5-ui") org.fossify.gallery.nas.ui.NasUiProbe.stage + " / " +
+                    error.stackTrace.take(5).joinToString { "${it.methodName}:${it.lineNumber}" } else "")
             finish(Activity.RESULT_CANCELED, result)
         }
     }
