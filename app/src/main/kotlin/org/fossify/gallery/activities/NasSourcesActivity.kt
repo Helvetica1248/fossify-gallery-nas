@@ -128,6 +128,7 @@ class NasSourcesActivity : SimpleActivity() {
             .setPositiveButton(CommonsR.string.delete) { _, _ ->
                 perform({
                     store.delete(item.source.key)
+                    org.fossify.gallery.nas.repository.AndroidNasRepository.sourceDeleted(this, item.source.key.id)
                     store.list()
                 }) {
                     showSources(it)
