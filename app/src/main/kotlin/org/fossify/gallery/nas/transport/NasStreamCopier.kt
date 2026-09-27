@@ -194,9 +194,6 @@ object NasStreamCopier {
         }
     }
 
-    private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
-        NasFailure.TIMED_OUT.takeIf { deadline.isExpired() }
-
     private fun emptyReadFailure(emptyReads: Int): NasFailure? =
         NasFailure.IO_ERROR.takeIf { emptyReads >= MAX_EMPTY_READS }
 
@@ -209,3 +206,6 @@ object NasStreamCopier {
         data class Failed(val reason: NasFailure) : ReadResult
     }
 }
+
+private fun deadlineFailure(deadline: NasDeadline): NasFailure? =
+    NasFailure.TIMED_OUT.takeIf { deadline.isExpired() }
