@@ -104,7 +104,6 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
         fun load() {
             val value = row ?: return
             if (value.entry == null && value.favorite == null) return
-            if (value.entry?.let(NasExternalTypes::mime) != null) return
             if (!active || attempted) return
             if (!itemView.getGlobalVisibleRect(Rect())) return
             attempted = true
@@ -117,7 +116,7 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
                 complete = true
                 val bitmap = result.getOrNull()?.bitmap
                 if (bitmap != null) binding.nasItemImage.setImageBitmap(bitmap)
-                else if (value.entry?.kind == NasEntryKind.FILE) {
+                else if (value.entry?.kind == NasEntryKind.FILE && NasExternalTypes.mime(value.entry) == null) {
                     binding.nasItemDetail.setText(R.string.nas_thumbnail_error)
                 }
             }

@@ -4,6 +4,7 @@ import org.fossify.gallery.nas.cache.NasCacheException
 import org.fossify.gallery.nas.cache.NasCacheResult
 import org.fossify.gallery.nas.cache.NasDiskCache
 import org.fossify.gallery.nas.cache.NasImageProcessor
+import org.fossify.gallery.nas.cache.NasPreviewProcessor
 import org.fossify.gallery.nas.model.NasCacheKey.Variant
 import org.fossify.gallery.nas.model.NasEntry
 import org.fossify.gallery.nas.model.NasFailure
@@ -45,6 +46,17 @@ internal class NasTransfers(
                 return NasCacheResult.Failed(NasFailure.INVALID_RESPONSE)
             }
             if (!images.thumbnail(original, reservation.part) || !images.validate(reservation.part)) {
+                return NasCacheResult.Failed(NasFailure.INVALID_RESPONSE)
+            }
+            return NasCacheResult.Available(cache.publish(reservation, cancellation))
+        }
+    }
+
+    fun preview(entry: NasEntry, processor: NasPreviewProcessor?, cancellation: NasCancellation): NasCacheResult {
+        if (processor == null) return NasCacheResult.Failed(NasFailure.INVALID_RESPONSE)
+        cache.reserve(entry, Variant.THUMBNAIL).use { reservation ->
+            cancellation.throwIfCancelled()
+            if (!processor.thumbnail(entry, reservation.part, cancellation) || !images.validate(reservation.part)) {
                 return NasCacheResult.Failed(NasFailure.INVALID_RESPONSE)
             }
             return NasCacheResult.Available(cache.publish(reservation, cancellation))

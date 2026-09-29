@@ -151,6 +151,10 @@
             android:parentActivityName=".activities.SettingsActivity" />
 
         <activity android:name=".activities.NasSearchActivity" android:exported="false" />
+        <service android:name=".nas.cache.NasPreviewService" android:exported="false"
+            android:isolatedProcess="true" android:process=":nas_preview" />
+        <service android:name=".nas.cache.NasVideoPreviewService" android:exported="false"
+            android:process=":nas_video_preview" />
         <provider android:name=".nas.external.NasExternalProvider"
             android:authorities="${applicationId}.nas.external"
             android:exported="false" android:grantUriPermissions="true" />

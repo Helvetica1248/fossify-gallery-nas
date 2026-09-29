@@ -4,6 +4,8 @@ import org.fossify.gallery.nas.cache.NasCacheException
 import org.fossify.gallery.nas.cache.NasCacheResult
 import org.fossify.gallery.nas.cache.NasDiskCache
 import org.fossify.gallery.nas.cache.NasImageProcessor
+import org.fossify.gallery.nas.cache.NasPreviewProcessor
+import org.fossify.gallery.nas.external.NasExternalTypes
 import org.fossify.gallery.nas.catalog.NasCatalogStore
 import org.fossify.gallery.nas.model.NasCacheKey.Variant
 import org.fossify.gallery.nas.model.NasEntry
@@ -23,7 +25,8 @@ class NasRepository internal constructor(
     private val catalog: NasCatalogStore,
     private val cache: NasDiskCache,
     private val reader: NasReader,
-    images: NasImageProcessor
+    images: NasImageProcessor,
+    private val previews: NasPreviewProcessor? = null
 ) {
     private val refreshes = mutableMapOf<Pair<NasSourceKey, NasRelativePath>, Any>()
     private val transfers = NasTransfers(cache, reader, images)
@@ -71,6 +74,9 @@ class NasRepository internal constructor(
             cancellation.throwIfCancelled()
             if (source.key != entry.key.source) return@cacheOperation NasCacheResult.Failed(NasFailure.INVALID_RESPONSE)
             cache.acquire(entry, Variant.THUMBNAIL)?.let { return@cacheOperation NasCacheResult.Available(it) }
+            if (NasExternalTypes.mime(entry) != null) {
+                return@cacheOperation transfers.preview(entry, previews, cancellation)
+            }
             when (val original = fetchOriginal(source, entry, cancellation)) {
                 is NasCacheResult.Available -> original.lease.use { transfers.thumbnail(entry, it.file, cancellation) }
                 else -> original

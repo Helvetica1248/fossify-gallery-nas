@@ -45,6 +45,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
+            <Button
+                android:id="@+id/nas_reset_pdf_app"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/nas_external_reset_pdf" />
+            <Button
+                android:id="@+id/nas_reset_video_app"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/nas_external_reset_video" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

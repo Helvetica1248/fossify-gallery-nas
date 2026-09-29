@@ -15,4 +15,9 @@
     <string name="nas_external_no_app">No compatible external app is available. Install a trusted PDF viewer or video player.</string>
     <string name="nas_external_pdf">PDF · external app</string>
     <string name="nas_external_video">Video · external app</string>
+    <string name="nas_external_remember">Use this app next time</string>
+    <string name="nas_external_remember_failed">Could not save the app preference. Please choose again next time.</string>
+    <string name="nas_external_reset_pdf">Forget the PDF app choice</string>
+    <string name="nas_external_reset_video">Forget the video app choice</string>
+    <string name="nas_external_reset_done">App choice cleared. You can choose again when opening a file.</string>
 </resources>

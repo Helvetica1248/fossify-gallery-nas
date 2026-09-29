@@ -5,6 +5,7 @@ import org.fossify.gallery.nas.cache.NasCacheLimits
 import org.fossify.gallery.nas.cache.NasCacheResult
 import org.fossify.gallery.nas.cache.NasDiskCache
 import org.fossify.gallery.nas.cache.NasImageProcessor
+import org.fossify.gallery.nas.cache.NasPreviewProcessor
 import org.fossify.gallery.nas.catalog.CacheRow
 import org.fossify.gallery.nas.catalog.NasCacheIndex
 import org.fossify.gallery.nas.catalog.NasCatalogStore
@@ -200,6 +201,37 @@ class NasStorageTest {
         repo.getCachedOriginal(entry())!!.use { it.file.writeBytes(byteArrayOf(0, 0, 0, 0)) }
         assertTrue(repo.fetchThumbnail(source, entry(), NasCancellation()) is NasCacheResult.Failed)
         assertNull(repo.getCachedOriginal(entry()))
+    }
+
+    @Test fun externalPreviewsCacheOnlyTheThumbnailAndWorkOfflineForLargeVideos() {
+        var renders = 0
+        val previewRepo = NasRepository(catalog, cache, reader, images, NasPreviewProcessor { _, target, _ ->
+            renders++
+            target.writeBytes(byteArrayOf(7, 1))
+            true
+        })
+        // Larger than this fixture's original quota: only the bounded thumbnail may be reserved.
+        val video = entry("large.mp4").copy(size = Long.MAX_VALUE)
+        repeat(2) {
+            (previewRepo.fetchThumbnail(source, video, NasCancellation()) as NasCacheResult.Available).lease.close()
+        }
+        assertEquals(1, renders)
+        assertEquals(0, reader.opens)
+        assertNull(previewRepo.getCachedOriginal(video))
+        assertEquals(Variant.THUMBNAIL.name, index.all().single().variant)
+    }
+
+    @Test fun failedOrCancelledExternalPreviewDoesNotPublishOrKeepPartialFiles() {
+        val token = NasCancellation()
+        val previewRepo = NasRepository(catalog, cache, reader, images, NasPreviewProcessor { _, target, cancel ->
+            target.writeBytes(byteArrayOf(7, 1))
+            cancel.cancel()
+            true
+        })
+        assertTrue(previewRepo.fetchThumbnail(source, entry("test.pdf"), token) is NasCacheResult.Cancelled)
+        assertTrue(index.all().isEmpty())
+        assertEquals(0, reader.opens)
+        assertTrue(temp.root.walk().none { it.extension == "part" })
     }
 
     private fun entry(name: String = "fixture.png") = NasEntry(

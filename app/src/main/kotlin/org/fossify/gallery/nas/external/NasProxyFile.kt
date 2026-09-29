@@ -31,10 +31,11 @@ internal object NasProxyFile {
         Thread(task, "nas-range-timeout").apply { isDaemon = true }
     }.apply { removeOnCancelPolicy = true }
 
-    fun open(context: Context, entry: NasEntry, signal: CancellationSignal?): ParcelFileDescriptor {
+    fun open(context: Context, entry: NasEntry, signal: CancellationSignal?,
+             budget: NasPreviewBudget? = null): ParcelFileDescriptor {
         if (!slots.tryAcquire()) throw FileNotFoundException("Close the previous NAS document or video first")
         val thread = HandlerThread("nas-range").apply { start() }
-        val callback = Callback(context, entry, thread)
+        val callback = Callback(context, entry, thread, budget)
         return try {
             signal?.setOnCancelListener { callback.abort() }
             context.getSystemService(StorageManager::class.java).openProxyFileDescriptor(
@@ -45,17 +46,21 @@ internal object NasProxyFile {
         }
     }
 
-    private class Callback(val context: Context, val entry: NasEntry, val thread: HandlerThread) :
+    private class Callback(val context: Context, val entry: NasEntry, val thread: HandlerThread,
+                           val budget: NasPreviewBudget?) :
         ProxyFileDescriptorCallback() {
         private val cancellation = NasCancellation()
         private val closed = AtomicBoolean()
         private var remote: NasSeekableHandle? = null
         private var idle: ScheduledFuture<*>? = null
+        private val lifetime = budget?.let { timers.schedule({ abort() }, it.timeoutMillis, TimeUnit.MILLISECONDS) }
 
         init { touch() }
-        override fun onGetSize(): Long = guarded { handle().size }
+        override fun onGetSize(): Long = guarded { budget?.charge(0); handle().size }
         override fun onRead(offset: Long, size: Int, data: ByteArray): Int = guarded {
-            NasRangeRead.read(handle(), offset, size, data)
+            val file = handle()
+            budget?.charge(minOf(size.toLong(), (file.size - offset).coerceAtLeast(0)).toInt())
+            NasRangeRead.read(file, offset, size, data)
         }
         override fun onWrite(offset: Long, size: Int, data: ByteArray): Int =
             throw ErrnoException("NAS read-only", OsConstants.EROFS)
@@ -95,7 +100,11 @@ internal object NasProxyFile {
 
         fun abort() {
             if (!closed.compareAndSet(false, true)) return
-            val owned = synchronized(this) { idle?.cancel(false); remote.also { remote = null } }
+            val owned = synchronized(this) {
+                idle?.cancel(false)
+                lifetime?.cancel(false)
+                remote.also { remote = null }
+            }
             try {
                 runCatching { cancellation.cancel() }
                 runCatching { owned?.close() }

@@ -29,6 +29,8 @@ import org.fossify.gallery.nas.settings.AndroidNasSettings
 import org.fossify.gallery.nas.settings.NasCredentials
 import org.fossify.gallery.nas.settings.NasSourceForm
 import org.fossify.gallery.nas.settings.SavedNasSource
+import org.fossify.gallery.nas.external.NasExternalOpener
+import org.fossify.gallery.nas.external.NasViewerKind
 import org.fossify.commons.R as CommonsR
 
 class NasSourcesActivity : SimpleActivity() {
@@ -50,6 +52,14 @@ class NasSourcesActivity : SimpleActivity() {
         setupMaterialScrollListener(binding.nasScroll, binding.nasAppbar)
         setupTopAppBar(binding.nasAppbar, NavigationIcon.Arrow)
         binding.nasAdd.setOnClickListener { if (!busy) edit(null, null) }
+        listOf(binding.nasResetPdfApp to NasViewerKind.PDF, binding.nasResetVideoApp to NasViewerKind.VIDEO)
+            .forEach { (button, kind) ->
+                button.setOnClickListener {
+                    perform({ NasExternalOpener.preferences(this).set(kind, null) }) {
+                        message(R.string.nas_external_reset_done)
+                    }
+                }
+            }
         perform({ store.list() }) { showSources(it) }
     }
 

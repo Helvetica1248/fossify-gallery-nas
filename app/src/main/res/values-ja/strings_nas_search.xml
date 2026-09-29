@@ -15,4 +15,9 @@
     <string name="nas_external_no_app">対応する外部アプリを利用できません。信頼できるPDFビューアーまたは動画プレーヤーを用意してください。</string>
     <string name="nas_external_pdf">PDF・別アプリで開く</string>
     <string name="nas_external_video">動画・別アプリで再生</string>
+    <string name="nas_external_remember">次回からこのアプリで開く</string>
+    <string name="nas_external_remember_failed">アプリの選択を保存できませんでした。次回もう一度選択してください。</string>
+    <string name="nas_external_reset_pdf">PDFアプリの記憶を解除</string>
+    <string name="nas_external_reset_video">動画アプリの記憶を解除</string>
+    <string name="nas_external_reset_done">アプリの記憶を解除しました。次にファイルを開くときに選び直せます。</string>
 </resources>

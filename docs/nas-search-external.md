@@ -21,8 +21,34 @@ to saved listings instead of repeating the same failed login in every directory.
 missing folders cannot be searched offline. Current source/revision and P3 no-follow/VPN boundaries are retained.
 
 Normal browsing now also shows PDF and common video extensions: mp4/m4v/mkv/webm/mov/avi/3gp/mpeg/mpg/ts.
-These entries use fixed icons, not image thumbnail generation. Image viewing, favorites and direct-child folder
-covers remain unchanged. PDF/video codecs and format variants depend on the selected external application.
+Visible PDF/video entries load a first-page/representative-frame thumbnail, with the type icon as fallback.
+Image viewing, favorites and direct-child folder covers remain unchanged. External playback codecs and format
+variants depend on the selected application.
+
+The external-app picker offers **Use this app next time**. PDF and video choices are stored separately and
+survive app restarts. **NAS settings** has separate reset buttons for these two choices. Missing, disabled or
+unlaunchable saved apps return to the picker. Only an exported handler for the current MIME type is eligible;
+remembering an app does not broaden its per-file read grant.
+
+## PDF/video thumbnails
+
+Only visible browser entries request previews; search remains metadata-only. Rendering uses a seekable,
+read-only NAS descriptor without saving the original PDF/video. Each render allows at most 16 MiB of cumulative
+reads (including repeated ranges) and 20 seconds. One decoder runs at a time; queued requests also
+expire after 20 seconds. Leaving/recycling a row cancels its work. Unsupported, corrupt, password-protected or
+over-budget files keep the type icon and can still be opened externally.
+
+The non-exported services receive only a descriptor and MIME type, never credentials or a NAS path.
+PDF rendering uses an isolated UID without settings access. Video uses a separate app process because Pixel's
+system media service rejects isolated UIDs; this process retains normal app permissions. The services render
+PDF page one or a video sync frame near one second, at most 256 pixels per edge.
+Unbinding terminates the dedicated process, including a stuck native decoder (up to three seconds to reap it).
+Android 8.0's unscaled video API
+is restricted to at most 1920×1080 pixels and a 4096-pixel edge; Android 8.1+ uses the scaled frame API.
+
+Only the generated PNG is published into the existing 128 MiB thumbnail quota, using the normal revision-aware
+cache key, reservation, validation and atomic publication. Decoder failures/cancellation do not publish partial
+files. No new full-file cache or dependency is introduced.
 
 ## Read-only external stream
 
@@ -94,6 +120,12 @@ This fixture uses real Android proxy descriptors and Room, synthetic bytes, an i
 internal Debug-only read seam. It checks forward/backward seek, short-read completion, EOF, write-open rejection,
 resource release and catalog retention. It never loads stored NAS credentials or contacts the NAS.
 The seam and URI are cleared afterwards. Passing this probe is not external-application or Human PASS.
+
+The additional `-e probe p6-previews` phase checks PDF/video rendering in dedicated processes and 256-pixel bounds, invalid-PDF
+fallback, cancellation during a blocked range read and stream cleanup. It uses a generated PDF and the synthetic
+`app/src/androidTest/assets/nas-preview-fixture.mp4` (FFmpeg `testsrc2=size=96x64:rate=2`, two seconds, H.264
+baseline/yuv420p, no audio, `+faststart`), never stored NAS credentials. JVM tests cover byte/time budgets,
+separate PDF/video preferences, stale-choice cleanup and thumbnail-only cache publication/cancellation.
 
 Codex/user must then verify on the Pixel:
 1. Build Debug and test APK locally with the same existing debug key, or verify signer compatibility before install.
