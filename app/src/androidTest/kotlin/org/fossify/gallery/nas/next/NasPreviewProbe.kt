@@ -33,10 +33,13 @@ internal object NasPreviewProbe {
     fun run(instrumentation: Instrumentation): String {
         val context = instrumentation.targetContext
         val target = File(context.cacheDir, "nas-preview-probe.png")
-        val renderer = AndroidNasPreviews(context)
+        val decoderPids = mutableMapOf<String, MutableList<Int>>()
+        val renderer = AndroidNasPreviews(context) { mime, pid ->
+            synchronized(decoderPids) { decoderPids.getOrPut(mime) { mutableListOf() }.add(pid) }
+        }
         try {
-            val files = listOf("fixture.pdf" to pdf(), "fixture.mp4" to
-                instrumentation.context.assets.open("nas-preview-fixture.mp4").use { it.readBytes() })
+            val video = instrumentation.context.assets.open("nas-preview-fixture.mp4").use { it.readBytes() }
+            val files = listOf("fixture.pdf" to pdf(), "fixture.mp4" to video)
             for ((name, bytes) in files) {
                 stage = name
                 val closes = AtomicInteger()
@@ -52,13 +55,21 @@ internal object NasPreviewProbe {
                 target.delete()
                 instrumentation.waitForIdleSync()
             }
+            stage = "warm video decoder"
+            val warmCloses = AtomicInteger()
+            NasExternalFiles.fixture = { _, cancel -> memory(video, cancel, warmCloses) }
+            check(renderer.thumbnail(entry("fixture.mp4", video), target, NasCancellation()))
+            waitForClose(warmCloses)
+            target.delete()
+            val videoPids = synchronized(decoderPids) { decoderPids["video/mp4"].orEmpty().toList() }
+            check(videoPids.size >= 2 && videoPids.takeLast(2).distinct().size == 1)
             stage = "invalid PDF"
             val invalid = byteArrayOf(1, 2, 3)
             NasExternalFiles.fixture = { _, cancel -> memory(invalid, cancel, AtomicInteger()) }
             check(!renderer.thumbnail(entry("invalid.pdf", invalid), target, NasCancellation()))
             stage = "cancel blocking decode"
             cancel(renderer, target)
-            return "PASS: PDF first page/video frame in dedicated processes, 256px bounds, invalid PDF fallback, " +
+            return "PASS: PDF first page/video frame, warm video decoder reuse, 256px bounds, invalid PDF fallback, " +
                 "blocking-read cancellation and stream cleanup"
         } finally {
             NasExternalFiles.fixture = null

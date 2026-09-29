@@ -23,6 +23,7 @@ internal object NasPreviewProtocol {
     const val DESCRIPTOR = "descriptor"
     const val MIME = "mime"
     const val PNG = "png"
+    const val PID = "pid"
     const val MAX_PNG_BYTES = 512 * 1024
 }
 
@@ -47,7 +48,10 @@ open class NasPreviewService : Service() {
         } catch (_: Exception) { null } catch (_: OutOfMemoryError) { null }
         runCatching {
             reply?.send(Message.obtain(null, NasPreviewProtocol.RENDER).apply {
-                this.data = Bundle().apply { putByteArray(NasPreviewProtocol.PNG, png) }
+                this.data = Bundle().apply {
+                    putByteArray(NasPreviewProtocol.PNG, png)
+                    putInt(NasPreviewProtocol.PID, Process.myPid())
+                }
             })
         }
     }

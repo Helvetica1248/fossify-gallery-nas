@@ -35,7 +35,10 @@ remembering an app does not broaden its per-file read grant.
 Only visible browser entries request previews; search remains metadata-only. Rendering uses a seekable,
 read-only NAS descriptor without saving the original PDF/video. Each render allows at most 16 MiB of cumulative
 reads (including repeated ranges) and 20 seconds. One decoder runs at a time; queued requests also
-expire after 20 seconds. Leaving/recycling a row cancels its work. Unsupported, corrupt, password-protected or
+expire after 20 seconds. Leaving/recycling a row cancels its work. Successful decoder bindings stay warm for
+three seconds, so a visible run of PDF/video rows reuses the already-started dedicated process instead of paying
+a process start/kill cycle per thumbnail. Failure/cancellation drops all warm bindings for that decoder type so
+the existing process-kill cleanup still handles stuck native decoders. Unsupported, corrupt, password-protected or
 over-budget files keep the type icon and can still be opened externally.
 
 The non-exported services receive only a descriptor and MIME type, never credentials or a NAS path.
@@ -46,8 +49,15 @@ Unbinding terminates the dedicated process, including a stuck native decoder (up
 Android 8.0's unscaled video API
 is restricted to at most 1920×1080 pixels and a 4096-pixel edge; Android 8.1+ uses the scaled frame API.
 
+Preview proxy reads use a two-block, 128 KiB-per-block process-local read-ahead cache. Repeated/overlapping
+metadata seeks are served from memory; only bytes actually fetched into those blocks are charged against the
+existing 16 MiB preview budget. Normal external PDF/video playback does not use this read-ahead layer.
+
 Only the generated PNG is published into the existing 128 MiB thumbnail quota, using the normal revision-aware
-cache key, reservation, validation and atomic publication. Decoder failures/cancellation do not publish partial
+cache key, reservation, validation and atomic publication. The browser additionally keeps up to 16 MiB of
+decoded 256px thumbnail Bitmaps in a process-local LRU so scrolling away and back does not repeatedly decode
+the same PNG. This mirrors Fossify Gallery's memory-cache-first thumbnail behavior without adding a second
+persistent disk cache. Decoder failures/cancellation do not publish partial
 files. No new full-file cache or dependency is introduced.
 
 ## Read-only external stream
@@ -146,3 +156,20 @@ Codex/user must then verify on the Pixel:
 Report exact HEAD, unit/static/build outcomes, local-proxy probe, external app/version, play/page/seek, LAN/VPN,
 cache observations, existing-feature regression and unperformed checks. Keep the PR Draft; merge, production
 NAS mutations and destructive reinstall are not part of this stage.
+
+
+## Thumbnail performance follow-up
+
+The local Fossify Gallery path uses Glide with a stable signature, memory cache and resource disk cache, so
+revisiting a local row usually avoids both source I/O and repeated decode. NAS keeps its own bounded P4 disk
+cache and lease rules instead of handing SMB lifecycle to Glide. This follow-up adopts the useful parts of the
+local design without merging the two storage models:
+
+- warm reuse of the dedicated preview process for short visible batches;
+- a tiny preview-only range read-ahead cache to reduce SMB round trips from decoder metadata seeks;
+- a 16 MiB decoded-Bitmap LRU above the existing 128 MiB NAS thumbnail disk quota.
+
+Decoder concurrency remains one in this change. P3/P4 already cap network operations at two; increasing native
+decoder concurrency is deferred until Pixel before/after timing shows the warm/readahead path is still the
+dominant bottleneck. No persistent PDF/video original cache, background pre-generation or whole-folder prefetch
+is introduced.

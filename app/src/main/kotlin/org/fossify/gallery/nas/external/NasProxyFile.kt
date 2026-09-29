@@ -53,14 +53,14 @@ internal object NasProxyFile {
         private val closed = AtomicBoolean()
         private var remote: NasSeekableHandle? = null
         private var idle: ScheduledFuture<*>? = null
+        private val previewReads = budget?.let(::NasPreviewReadCache)
         private val lifetime = budget?.let { timers.schedule({ abort() }, it.timeoutMillis, TimeUnit.MILLISECONDS) }
 
         init { touch() }
         override fun onGetSize(): Long = guarded { budget?.charge(0); handle().size }
         override fun onRead(offset: Long, size: Int, data: ByteArray): Int = guarded {
             val file = handle()
-            budget?.charge(minOf(size.toLong(), (file.size - offset).coerceAtLeast(0)).toInt())
-            NasRangeRead.read(file, offset, size, data)
+            previewReads?.read(file, offset, size, data) ?: NasRangeRead.read(file, offset, size, data)
         }
         override fun onWrite(offset: Long, size: Int, data: ByteArray): Int =
             throw ErrnoException("NAS read-only", OsConstants.EROFS)

@@ -106,13 +106,21 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
             if (value.entry == null && value.favorite == null) return
             if (!active || attempted) return
             if (!itemView.getGlobalVisibleRect(Rect())) return
+            value.entry?.takeIf { it.kind == NasEntryKind.FILE }?.let { entry ->
+                NasThumbnailMemoryCache.get(entry)?.let {
+                    attempted = true
+                    complete = true
+                    binding.nasItemImage.setImageBitmap(it)
+                    return
+                }
+            }
             attempted = true
             val context = itemView.context.applicationContext
             request.start(scope, work = { cancellation ->
                 val data = NasUiData.get(context)
                 val entry = thumbnailEntry(data, value, cancellation) ?: return@start NasThumbnail(null)
                 decodeThumbnail(data, entry, cancellation)
-            }, discard = { it.bitmap?.recycle() }) { result ->
+            }, discard = {}) { result ->
                 complete = true
                 val bitmap = result.getOrNull()?.bitmap
                 if (bitmap != null) binding.nasItemImage.setImageBitmap(bitmap)
@@ -122,16 +130,22 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
             }
         }
 
-        private fun decodeThumbnail(data: NasUiData, entry: NasEntry, cancellation: NasCancellation): NasThumbnail =
-            when (val result = data.image(entry, Variant.THUMBNAIL, cancellation)) {
+        private fun decodeThumbnail(data: NasUiData, entry: NasEntry, cancellation: NasCancellation): NasThumbnail {
+            NasThumbnailMemoryCache.get(entry)?.let { return NasThumbnail(it) }
+            return when (val result = data.image(entry, Variant.THUMBNAIL, cancellation)) {
                 is NasCacheResult.Available -> result.lease.use {
                     val bitmap = try { BitmapFactory.decodeFile(it.file.absolutePath) }
                     catch (ignored: OutOfMemoryError) { null }
-                    if (bitmap == null) data.repository.invalidateCache(entry, Variant.THUMBNAIL)
+                    if (bitmap == null) {
+                        data.repository.invalidateCache(entry, Variant.THUMBNAIL)
+                    } else {
+                        NasThumbnailMemoryCache.put(entry, bitmap)
+                    }
                     NasThumbnail(bitmap)
                 }
                 else -> NasThumbnail(null)
             }
+        }
 
         private fun thumbnailEntry(data: NasUiData, value: NasBrowserRow, cancellation: NasCancellation): NasEntry? =
             when {

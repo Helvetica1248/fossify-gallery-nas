@@ -23,7 +23,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 internal fun interface NasPreviewProcessor {
@@ -31,7 +33,11 @@ internal fun interface NasPreviewProcessor {
 }
 
 /** One decoder at a time; cancellation/timeouts unbind and terminate its dedicated process. Call on IO. */
-internal class AndroidNasPreviews(private val context: Context) : NasPreviewProcessor {
+internal class AndroidNasPreviews(
+    context: Context,
+    private val decoderObserver: (String, Int) -> Unit = { _, _ -> }
+) : NasPreviewProcessor {
+    private val context = context.applicationContext
     override fun thumbnail(entry: NasEntry, target: File, cancellation: NasCancellation): Boolean {
         val budget = NasPreviewBudget()
         while (!decoder.tryAcquire(POLL_MILLIS, TimeUnit.MILLISECONDS)) {
@@ -50,7 +56,7 @@ internal class AndroidNasPreviews(private val context: Context) : NasPreviewProc
         cancellation.own(Closeable { signal.cancel() }).use {
             val budget = NasPreviewBudget()
             NasProxyFile.open(context, entry, signal, budget).use { descriptor ->
-                val connection = PreviewConnection(descriptor, mime)
+                val connection = PreviewConnection(descriptor, mime, decoderObserver)
                 val service = if (mime == "application/pdf") NasPreviewService::class.java
                     else NasVideoPreviewService::class.java
                 val bytes = request(Intent(context, service), connection, cancellation, signal, budget.timeoutMillis)
@@ -63,13 +69,20 @@ internal class AndroidNasPreviews(private val context: Context) : NasPreviewProc
 
     private fun request(intent: Intent, connection: PreviewConnection, cancellation: NasCancellation,
                         signal: CancellationSignal, timeout: Long): ByteArray? {
-        val bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        if (!bound) return null
-        return try { connection.await(cancellation, timeout) }
-        finally {
+        val binding = PreviewBinding(context, intent, connection)
+        if (!binding.bind()) return null
+        var reusable = false
+        return try {
+            connection.await(cancellation, timeout).also { reusable = it != null }
+        } finally {
             signal.cancel()
-            context.unbindService(connection)
-            connection.awaitShutdown()
+            if (reusable) {
+                PreviewWarmBindings.keep(binding)
+            } else {
+                PreviewWarmBindings.reset(binding.key)
+                binding.unbind()
+                connection.awaitShutdown()
+            }
         }
     }
 
@@ -79,14 +92,70 @@ internal class AndroidNasPreviews(private val context: Context) : NasPreviewProc
     }
 }
 
-private class PreviewConnection(private val descriptor: ParcelFileDescriptor, private val mime: String) :
-    ServiceConnection {
+private class PreviewBinding(
+    private val context: Context,
+    intent: Intent,
+    private val connection: ServiceConnection
+) {
+    val key: String = checkNotNull(intent.component).className
+    private val intent = intent
+    private val bound = AtomicBoolean()
+
+    fun bind(): Boolean {
+        val result = runCatching { context.bindService(intent, connection, Context.BIND_AUTO_CREATE) }
+            .getOrDefault(false)
+        if (result) bound.set(true)
+        return result
+    }
+
+    fun unbind() {
+        if (bound.compareAndSet(true, false)) runCatching { context.unbindService(connection) }
+    }
+}
+
+private object PreviewWarmBindings {
+    private const val WARM_MILLIS = 3_000L
+    private val lock = Any()
+    private val bindings = mutableMapOf<String, MutableSet<PreviewBinding>>()
+    private val timer = ScheduledThreadPoolExecutor(1) { task ->
+        Thread(task, "nas-preview-warm").apply { isDaemon = true }
+    }.apply { removeOnCancelPolicy = true }
+
+    fun keep(binding: PreviewBinding) {
+        synchronized(lock) { bindings.getOrPut(binding.key) { mutableSetOf() }.add(binding) }
+        timer.schedule({ release(binding) }, WARM_MILLIS, TimeUnit.MILLISECONDS)
+    }
+
+    fun reset(key: String) {
+        val stale = synchronized(lock) { bindings.remove(key)?.toList().orEmpty() }
+        stale.forEach(PreviewBinding::unbind)
+    }
+
+    private fun release(binding: PreviewBinding) {
+        synchronized(lock) {
+            bindings[binding.key]?.let {
+                it.remove(binding)
+                if (it.isEmpty()) bindings.remove(binding.key)
+            }
+        }
+        binding.unbind()
+    }
+}
+
+private class PreviewConnection(
+    private val descriptor: ParcelFileDescriptor,
+    private val mime: String,
+    private val decoderObserver: (String, Int) -> Unit
+) : ServiceConnection {
     private val completed = CountDownLatch(1)
     private val died = CountDownLatch(1)
     @Volatile private var connected = false
     private val png = AtomicReference<ByteArray?>()
     private val receiver = Messenger(Handler(Looper.getMainLooper()) { message ->
         png.set(message.data.getByteArray(NasPreviewProtocol.PNG))
+        message.data.getInt(NasPreviewProtocol.PID, -1).takeIf { it > 0 }?.let {
+            decoderObserver(mime, it)
+        }
         completed.countDown()
         true
     })
