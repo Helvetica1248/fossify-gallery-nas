@@ -11,7 +11,7 @@ internal class NasPreviewReadCache(
     private val blockBytes: Int = DEFAULT_BLOCK_BYTES,
     private val maxBlocks: Int = DEFAULT_BLOCKS
 ) {
-    private val blocks = LinkedHashMap<Long, ByteArray>(maxBlocks, 0.75f, true)
+    private val blocks = LinkedHashMap<Long, ByteArray>(maxBlocks, LOAD_FACTOR, true)
 
     init {
         require(blockBytes > 0 && maxBlocks > 0)
@@ -53,6 +53,7 @@ internal class NasPreviewReadCache(
     }
 
     private companion object {
+        const val LOAD_FACTOR = 0.75f
         const val DEFAULT_BLOCK_BYTES = 128 * 1024
         const val DEFAULT_BLOCKS = 2
     }
