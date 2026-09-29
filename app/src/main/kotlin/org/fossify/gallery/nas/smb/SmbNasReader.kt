@@ -19,6 +19,8 @@ import org.fossify.gallery.nas.transport.NasCancellation
 import org.fossify.gallery.nas.transport.NasOpenResult
 import org.fossify.gallery.nas.transport.NasReadHandle
 import org.fossify.gallery.nas.transport.NasReader
+import org.fossify.gallery.nas.transport.NasSeekableReader
+import org.fossify.gallery.nas.transport.NasSeekableResult
 import java.io.Closeable
 import java.io.InputStream
 import java.util.concurrent.CancellationException
@@ -28,8 +30,9 @@ import java.util.concurrent.CancellationException
 @Suppress("TooGenericExceptionCaught")
 internal class SmbNasReader(
     private val network: SmbNetworkProvider,
+    private val socketIdleMillis: Int = SMB_TIMEOUT_MILLIS,
     private val credentials: (NasSource) -> NasCredentials?
-) : NasReader {
+) : NasReader, NasSeekableReader {
     override fun list(source: NasSource, folder: NasRelativePath, cancellation: NasCancellation): NasListingResult {
         var owner: Closeable? = null
         return try {
@@ -50,7 +53,23 @@ internal class SmbNasReader(
         }
     }
 
-    override fun open(source: NasSource, entry: NasEntry, cancellation: NasCancellation): NasOpenResult {
+    override fun open(source: NasSource, entry: NasEntry, cancellation: NasCancellation): NasOpenResult =
+        when (val opened = openSeekable(source, entry, cancellation)) {
+            is NasSeekableResult.Opened -> {
+                val handle = opened.handle
+                val input = SmbReadInput(handle.size, cancellation, handle) { data, offset, start, length ->
+                    handle.readAt(offset, data, start, length)
+                }
+                NasOpenResult.Opened(object : NasReadHandle {
+                    override val input: InputStream = input
+                    override fun close() = input.close()
+                })
+            }
+            is NasSeekableResult.Failed -> NasOpenResult.Failed(opened.reason)
+            NasSeekableResult.Cancelled -> NasOpenResult.Cancelled
+        }
+
+    override fun openSeekable(source: NasSource, entry: NasEntry, cancellation: NasCancellation): NasSeekableResult {
         var owner: Closeable? = null
         var transferred = false
         return try {
@@ -74,17 +93,17 @@ internal class SmbNasReader(
                 entry.modifiedEpochMillis?.let { it != info.basicInformation.lastWriteTime.toEpochMillis() } == true) {
                 throw SmbFailureException(NasFailure.CONTENT_CHANGED)
             }
-            val input = SmbReadInput(size, cancellation, owner, file::read)
+            val handle = SmbSeekableHandle(size, cancellation, owner) { data, offset, start, length ->
+                file.read(data, offset, start, length)
+            }
             cancellation.throwIfCancelled()
             transferred = true
-            NasOpenResult.Opened(object : NasReadHandle {
-                override val input: InputStream = input
-                override fun close() = input.close()
-            })
+            NasSeekableResult.Opened(handle)
         } catch (_: CancellationException) {
-            NasOpenResult.Cancelled
+            NasSeekableResult.Cancelled
         } catch (error: Exception) {
-            if (cancellation.isCancelled) NasOpenResult.Cancelled else NasOpenResult.Failed(SmbSafety.failure(error))
+            if (cancellation.isCancelled) NasSeekableResult.Cancelled
+            else NasSeekableResult.Failed(SmbSafety.failure(error))
         } finally {
             if (!transferred) owner?.close()
         }
@@ -97,7 +116,7 @@ internal class SmbNasReader(
         cancellation.throwIfCancelled()
         val address = SmbDns.resolve(route, source.host.value, context)
         val sockets = SmbSocketFactory(route, address, source.port, context, cancellation)
-        val client = context.own(SMBClient(SmbSafety.config(sockets)))
+        val client = context.own(SMBClient(SmbSafety.config(sockets, socketIdleMillis)))
         // Pass a numeric address so SMBJ's InetSocketAddress cannot resolve outside the selected VPN.
         val connection = client.connect(address.hostAddress, source.port)
         context.own(AutoCloseable { connection.close(true) })

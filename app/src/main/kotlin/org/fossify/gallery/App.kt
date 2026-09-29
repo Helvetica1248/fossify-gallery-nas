@@ -12,6 +12,8 @@ class App : FossifyApp() {
     override val isAppLockFeatureAvailable = true
 
     override fun onCreate() {
+        // The isolated thumbnail decoder has no settings access and needs no UI/image-loader setup.
+        if (android.os.Process.myUid() != applicationInfo.uid) return
         super.onCreate()
         Reprint.initialize(this)
         Picasso.setSingletonInstance(Picasso.Builder(this).downloader(object : Downloader {

@@ -15,7 +15,12 @@ internal interface NasCatalogStore {
     fun clear(sourceId: UUID)
 }
 
-internal class RoomNasCatalogStore(private val db: NasCatalogDatabase) : NasCatalogStore {
+internal class RoomNasCatalogStore(
+    private val db: NasCatalogDatabase,
+    private val maxFolders: Int = MAX_FOLDERS,
+    private val maxEntries: Long = MAX_ENTRIES
+) : NasCatalogStore {
+    init { require(maxFolders > 0 && maxEntries > 0) }
     override fun get(source: NasSourceKey, folder: NasRelativePath): NasDirectorySnapshot? =
         db.runInTransaction(Callable {
             val dao = db.catalog()
@@ -44,6 +49,25 @@ internal class RoomNasCatalogStore(private val db: NasCatalogDatabase) : NasCata
             })
             // Presence of a snapshot is the complete marker; no pending generation is ever stored.
             dao.putSnapshot(SnapshotRow(id, source.revision, folder.value, generation + 1, now))
+            trimCatalog(dao, source, folder)
+        }
+    }
+
+    private fun trimCatalog(dao: NasCatalogDao, current: NasSourceKey, folder: NasRelativePath) {
+        val rows = dao.budgetRows()
+        var count = rows.size
+        var entries = rows.sumOf { it.entryCount }
+        for (row in rows) {
+            if (count <= maxFolders && entries <= maxEntries) break
+            val old = row.snapshot
+            val keep = old.sourceId == current.id.toString() && old.revision == current.revision &&
+                old.folder == folder.value
+            if (!keep) {
+                dao.deleteFolder(old.sourceId, old.revision, old.folder)
+                dao.deleteSnapshot(old.sourceId, old.revision, old.folder)
+                count--
+                entries -= row.entryCount
+            }
         }
     }
 
@@ -52,6 +76,11 @@ internal class RoomNasCatalogStore(private val db: NasCatalogDatabase) : NasCata
             db.catalog().deleteEntries(sourceId.toString())
             db.catalog().deleteSnapshots(sourceId.toString())
         }
+    }
+
+    private companion object {
+        const val MAX_FOLDERS = 512
+        const val MAX_ENTRIES = 100_000L
     }
 }
 

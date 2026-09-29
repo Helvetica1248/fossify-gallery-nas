@@ -2,6 +2,7 @@ package org.fossify.gallery.nas.catalog
 
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -51,6 +52,8 @@ internal data class CacheRow(
     val complete: Boolean
 )
 
+internal data class CatalogBudgetRow(@Embedded val snapshot: SnapshotRow, val entryCount: Long)
+
 @Dao
 internal interface NasCatalogDao {
     @Query("SELECT * FROM snapshots WHERE sourceId = :id AND revision = :revision AND folder = :folder")
@@ -70,6 +73,14 @@ internal interface NasCatalogDao {
 
     @Query("DELETE FROM entries WHERE sourceId = :id")
     fun deleteEntries(id: String)
+
+    @Query("DELETE FROM snapshots WHERE sourceId = :id AND revision = :revision AND folder = :folder")
+    fun deleteSnapshot(id: String, revision: Long, folder: String)
+
+    @Query("SELECT s.*, COUNT(e.path) AS entryCount FROM snapshots s LEFT JOIN entries e " +
+        "ON s.sourceId = e.sourceId AND s.revision = e.revision AND s.folder = e.folder " +
+        "GROUP BY s.sourceId, s.revision, s.folder ORDER BY s.refreshedAt ASC")
+    fun budgetRows(): List<CatalogBudgetRow>
 
     @Query("DELETE FROM snapshots WHERE sourceId = :id")
     fun deleteSnapshots(id: String)

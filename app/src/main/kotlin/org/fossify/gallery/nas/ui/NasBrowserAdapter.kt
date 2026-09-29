@@ -11,6 +11,7 @@ import kotlinx.coroutines.joinAll
 import org.fossify.commons.extensions.getProperTextColor
 import org.fossify.gallery.R
 import org.fossify.gallery.databinding.ItemNasBrowserBinding
+import org.fossify.gallery.nas.external.NasExternalTypes
 import org.fossify.gallery.nas.cache.NasCacheResult
 import org.fossify.gallery.nas.model.NasCacheKey.Variant
 import org.fossify.gallery.nas.model.NasConnectionMode
@@ -86,8 +87,15 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
                 value.entry?.kind == NasEntryKind.DIRECTORY -> context.getString(R.string.nas_folder_label)
                 else -> ""
             }
-            binding.nasItemImage.setImageResource(if (value.entry?.kind == NasEntryKind.FILE)
-                android.R.drawable.ic_menu_gallery else R.drawable.ic_folders_vector)
+            val external = value.entry?.let(NasExternalTypes::mime)
+            binding.nasItemImage.setImageResource(when {
+                external == "application/pdf" -> android.R.drawable.ic_menu_view
+                external != null -> android.R.drawable.ic_media_play
+                value.entry?.kind == NasEntryKind.FILE -> android.R.drawable.ic_menu_gallery
+                else -> R.drawable.ic_folders_vector
+            })
+            if (external != null) binding.nasItemDetail.setText(
+                if (external == "application/pdf") R.string.nas_external_pdf else R.string.nas_external_video)
             binding.root.contentDescription = value.title
             binding.root.setOnClickListener { click(value) }
             if (itemView.isAttachedToWindow) itemView.post { load() }
@@ -98,32 +106,46 @@ internal class NasBrowserAdapter(private val scope: CoroutineScope, private val 
             if (value.entry == null && value.favorite == null) return
             if (!active || attempted) return
             if (!itemView.getGlobalVisibleRect(Rect())) return
+            value.entry?.takeIf { it.kind == NasEntryKind.FILE }?.let { entry ->
+                NasThumbnailMemoryCache.get(entry)?.let {
+                    attempted = true
+                    complete = true
+                    binding.nasItemImage.setImageBitmap(it)
+                    return
+                }
+            }
             attempted = true
             val context = itemView.context.applicationContext
             request.start(scope, work = { cancellation ->
                 val data = NasUiData.get(context)
                 val entry = thumbnailEntry(data, value, cancellation) ?: return@start NasThumbnail(null)
                 decodeThumbnail(data, entry, cancellation)
-            }, discard = { it.bitmap?.recycle() }) { result ->
+            }, discard = {}) { result ->
                 complete = true
                 val bitmap = result.getOrNull()?.bitmap
                 if (bitmap != null) binding.nasItemImage.setImageBitmap(bitmap)
-                else if (value.entry?.kind == NasEntryKind.FILE) {
+                else if (value.entry?.kind == NasEntryKind.FILE && NasExternalTypes.mime(value.entry) == null) {
                     binding.nasItemDetail.setText(R.string.nas_thumbnail_error)
                 }
             }
         }
 
-        private fun decodeThumbnail(data: NasUiData, entry: NasEntry, cancellation: NasCancellation): NasThumbnail =
-            when (val result = data.image(entry, Variant.THUMBNAIL, cancellation)) {
+        private fun decodeThumbnail(data: NasUiData, entry: NasEntry, cancellation: NasCancellation): NasThumbnail {
+            NasThumbnailMemoryCache.get(entry)?.let { return NasThumbnail(it) }
+            return when (val result = data.image(entry, Variant.THUMBNAIL, cancellation)) {
                 is NasCacheResult.Available -> result.lease.use {
                     val bitmap = try { BitmapFactory.decodeFile(it.file.absolutePath) }
                     catch (ignored: OutOfMemoryError) { null }
-                    if (bitmap == null) data.repository.invalidateCache(entry, Variant.THUMBNAIL)
+                    if (bitmap == null) {
+                        data.repository.invalidateCache(entry, Variant.THUMBNAIL)
+                    } else {
+                        NasThumbnailMemoryCache.put(entry, bitmap)
+                    }
                     NasThumbnail(bitmap)
                 }
                 else -> NasThumbnail(null)
             }
+        }
 
         private fun thumbnailEntry(data: NasUiData, value: NasBrowserRow, cancellation: NasCancellation): NasEntry? =
             when {

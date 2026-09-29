@@ -26,6 +26,18 @@ class SmbRuntimeProbe : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
+            if (phase == "p6-previews") {
+                stage = "P6 previews"
+                result.putString("result", org.fossify.gallery.nas.next.NasPreviewProbe.run(this))
+                finish(Activity.RESULT_OK, result)
+                return
+            }
+            if (phase == "p6-local") {
+                stage = "P6 local"
+                result.putString("result", org.fossify.gallery.nas.next.NasNextProbe.run(targetContext))
+                finish(Activity.RESULT_OK, result)
+                return
+            }
             if (phase == "p5-ui") {
                 stage = "P5 UI"
                 result.putString("result", org.fossify.gallery.nas.ui.NasUiProbe.run(this))
@@ -46,8 +58,11 @@ class SmbRuntimeProbe : Instrumentation() {
             finish(Activity.RESULT_OK, result)
         } catch (error: Exception) {
             result.putString("result", "FAIL: $stage / ${error.javaClass.simpleName} / $workerFailure / " +
-                if (phase == "p5-ui") org.fossify.gallery.nas.ui.NasUiProbe.stage + " / " +
-                    error.stackTrace.take(5).joinToString { "${it.methodName}:${it.lineNumber}" } else "")
+                when (phase) {
+                    "p5-ui" -> org.fossify.gallery.nas.ui.NasUiProbe.stage
+                    "p6-previews" -> org.fossify.gallery.nas.next.NasPreviewProbe.stage
+                    else -> ""
+                } + " / " + error.stackTrace.take(5).joinToString { "${it.methodName}:${it.lineNumber}" })
             finish(Activity.RESULT_CANCELED, result)
         }
     }

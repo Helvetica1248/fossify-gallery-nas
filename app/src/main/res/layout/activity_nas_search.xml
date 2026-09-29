@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <org.fossify.commons.views.MyAppBarLayout android:id="@+id/nas_search_appbar"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+        <com.google.android.material.appbar.MaterialToolbar android:id="@+id/nas_search_toolbar"
+            android:layout_width="match_parent" android:layout_height="?attr/actionBarSize"
+            app:title="@string/nas_search" app:titleTextAppearance="@style/AppTheme.ActionBar.TitleTextStyle" />
+    </org.fossify.commons.views.MyAppBarLayout>
+    <EditText android:id="@+id/nas_search_text" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginHorizontal="16dp"
+        android:hint="@string/nas_search_hint" android:inputType="text" android:maxLength="256"
+        android:imeOptions="actionSearch" android:maxLines="1" android:importantForAutofill="no" />
+    <CheckBox android:id="@+id/nas_search_recursive" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:checked="true"
+        android:text="@string/nas_search_recursive" />
+    <CheckBox android:id="@+id/nas_search_cached" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:paddingHorizontal="16dp"
+        android:text="@string/nas_search_cached" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp" android:orientation="horizontal">
+        <Button android:id="@+id/nas_search_start" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/nas_search" />
+        <Button android:id="@+id/nas_search_cancel" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="@string/nas_search_cancel" android:visibility="gone" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/nas_search_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="4dp" android:visibility="gone" android:indeterminate="true" />
+    <TextView android:id="@+id/nas_search_status" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:padding="16dp" android:text="@string/nas_search_scope"
+        android:accessibilityLiveRegion="polite" />
+    <ListView android:id="@+id/nas_search_results" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false" />
+</LinearLayout>

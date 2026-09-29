@@ -32,7 +32,7 @@ internal object SmbSafety {
     val sharing = setOf(SMB2ShareAccess.FILE_SHARE_READ)
     val noFollow = setOf(SMB2CreateOptions.FILE_OPEN_REPARSE_POINT)
 
-    fun config(sockets: SocketFactory): SmbConfig = SmbConfig.builder()
+    fun config(sockets: SocketFactory, socketIdleMillis: Int = SMB_TIMEOUT_MILLIS): SmbConfig = SmbConfig.builder()
         .withDialects(SMB2Dialect.SMB_2_0_2, SMB2Dialect.SMB_2_1, SMB2Dialect.SMB_3_0,
             SMB2Dialect.SMB_3_0_2, SMB2Dialect.SMB_3_1_1)
         .withMultiProtocolNegotiate(false)
@@ -42,7 +42,7 @@ internal object SmbSafety {
         .withEncryptData(false)
         .withAuthenticators(NtlmAuthenticator.Factory())
         .withSocketFactory(sockets)
-        .withSoTimeout(SMB_TIMEOUT_MILLIS)
+        .withSoTimeout(socketIdleMillis)
         .withTimeout(SMB_TIMEOUT_MILLIS.toLong(), TimeUnit.MILLISECONDS)
         .build()
 

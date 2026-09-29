@@ -3,6 +3,7 @@ package org.fossify.gallery.nas.repository
 import android.content.Context
 import androidx.room.Room
 import org.fossify.gallery.nas.cache.AndroidNasImages
+import org.fossify.gallery.nas.cache.AndroidNasPreviews
 import org.fossify.gallery.nas.cache.NasDiskCache
 import org.fossify.gallery.nas.catalog.NasCatalogDatabase
 import org.fossify.gallery.nas.catalog.RoomNasCacheIndex
@@ -28,7 +29,7 @@ object AndroidNasRepository {
             settings.credentials(SavedNasSource(source, ""))
         }
         NasRepository(RoomNasCatalogStore(db), NasDiskCache(File(app.cacheDir, "nas"), RoomNasCacheIndex(db.cache())),
-            reader, AndroidNasImages()).also { instance = it }
+            reader, AndroidNasImages(), AndroidNasPreviews(app)).also { instance = it }
     }
 
     fun sourceDeleted(context: Context, sourceId: UUID) {

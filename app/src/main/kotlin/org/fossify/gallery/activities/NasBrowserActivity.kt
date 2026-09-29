@@ -18,6 +18,8 @@ import org.fossify.commons.extensions.viewBinding
 import org.fossify.commons.helpers.NavigationIcon
 import org.fossify.gallery.R
 import org.fossify.gallery.databinding.ActivityNasBrowserBinding
+import org.fossify.gallery.nas.external.NasExternalOpener
+import org.fossify.gallery.nas.external.NasExternalTypes
 import org.fossify.gallery.nas.data.NasDirectorySnapshot
 import org.fossify.gallery.nas.model.NasEntryKind
 import org.fossify.gallery.nas.model.NasRelativePath
@@ -37,6 +39,7 @@ import java.util.UUID
 class NasBrowserActivity : SimpleActivity() {
     private val binding by viewBinding(ActivityNasBrowserBinding::inflate)
     private val request = NasUiRequest()
+    private val external by lazy { NasExternalOpener(this, this) }
     private val favoriteRequest = NasUiRequest()
     private var favorite = false
     private var favoriteBusy = false
@@ -65,11 +68,15 @@ class NasBrowserActivity : SimpleActivity() {
         binding.nasBrowserToolbar.apply {
             menu.add(0, REFRESH, 0, R.string.nas_refresh)
             menu.add(0, SORT, 1, R.string.nas_sort)
+            menu.add(0, SEARCH, SEARCH_ORDER, R.string.nas_search)
             menu.add(0, FAVORITE, 2, R.string.nas_favorite_add).setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     REFRESH -> if (source == null) sources() else loadFolder(true)
                     SORT -> chooseSort()
+                    SEARCH -> source?.let {
+                        startActivity(NasSearchActivity.intent(this@NasBrowserActivity, it, folder))
+                    }
                     FAVORITE -> toggleFavorite()
                 }
                 true
@@ -79,7 +86,7 @@ class NasBrowserActivity : SimpleActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = back()
         })
-        restore(savedInstanceState)
+        restore(savedInstanceState ?: intent.extras)
     }
 
     override fun onStart() {
@@ -93,6 +100,7 @@ class NasBrowserActivity : SimpleActivity() {
 
     override fun onStop() {
         opening?.cancel()
+        external.cancel()
         request.cancel()
         favoriteRequest.cancel()
         adapter.setActive(false)
@@ -134,6 +142,7 @@ class NasBrowserActivity : SimpleActivity() {
     }
 
     private fun open(row: NasBrowserRow) {
+        external.cancel()
         if (opening?.isActive == true) return
         binding.nasBrowserProgress.isVisible = true
         opening = lifecycleScope.launch {
@@ -163,6 +172,12 @@ class NasBrowserActivity : SimpleActivity() {
                 adapter.submit(emptyList())
                 adapter.setActive(true)
                 loadFolder(false)
+            } else if (NasExternalTypes.mime(entry) != null) {
+                binding.nasBrowserProgress.isVisible = true
+                external.open(entry) {
+                    binding.nasBrowserProgress.isVisible = false
+                    adapter.setActive(true)
+                }
             } else {
                 val identity = NasViewerIdentity(entry.key.source, folder, entry.key.path, sort, descending)
                 startActivity(Intent(this, NasViewerActivity::class.java).putExtras(identity.bundle()))
@@ -205,6 +220,7 @@ class NasBrowserActivity : SimpleActivity() {
         val key = source
         val item = binding.nasBrowserToolbar.menu.findItem(FAVORITE)
         item.isVisible = key != null
+        binding.nasBrowserToolbar.menu.findItem(SEARCH).isVisible = key != null
         binding.nasBrowserToolbar.menu.findItem(SORT).isVisible = key != null
         if (key == null) return
         favoriteBusy = true
@@ -253,6 +269,7 @@ class NasBrowserActivity : SimpleActivity() {
     }
 
     private fun back() {
+        external.cancel()
         if (source == null) { finish(); return }
         opening?.cancel()
         request.cancel()
@@ -276,7 +293,7 @@ class NasBrowserActivity : SimpleActivity() {
         runCatching {
             saved.getString("source")?.let { source = NasSourceKey(UUID.fromString(it), saved.getLong("revision")) }
             folder = NasRelativePath.parse(saved.getString("folder") ?: "")
-            sourceName = saved.getString("name") ?: ""
+            sourceName = saved.getString("name") ?: getString(R.string.nas_sources)
             sort = NasSort.valueOf(saved.getString("sort") ?: NasSort.NAME.name)
             descending = saved.getBoolean("descending")
         }.onFailure { source = null; folder = NasRelativePath.ROOT }
@@ -287,5 +304,7 @@ class NasBrowserActivity : SimpleActivity() {
         const val REFRESH = 1
         const val SORT = 2
         const val FAVORITE = 3
+        const val SEARCH = 4
+        const val SEARCH_ORDER = 3
     }
 }
