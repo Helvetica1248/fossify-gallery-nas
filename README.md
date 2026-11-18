@@ -1,5 +1,7 @@
 # Fossify Gallery
 
+> **Fork development closed (2026-11-18).** Further feature development is stopped by Owner decision. Draft PR #6 was closed without merge; its search/PDF/video changes are not part of `main`. Existing source/history remain available.
+
 <img alt="Logo" src="graphics/icon.webp" width="120" />
 
 <a href='https://play.google.com/store/apps/details?id=org.fossify.gallery'><img alt='Get it on Google Play' src='https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png' height=80/></a> <a href="https://f-droid.org/en/packages/org.fossify.gallery/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on-en.svg" alt="Get it on F-Droid" height=80/></a> <a href="https://apt.izzysoft.de/fdroid/index/apk/org.fossify.gallery"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" alt="Get it on IzzyOnDroid" height=80/></a>
